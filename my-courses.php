@@ -1,0 +1,39 @@
+<?php
+require_once __DIR__ . '/includes/bootstrap.php';
+
+$me = require_login();
+$uid = (int)$me['id'];
+
+$learning = db_all(course_list_sql() . " WHERE c.status = 'published' AND c.id IN " . student_course_ids_sql() . ' ORDER BY c.code', [$uid, $uid]);
+foreach ($learning as &$c) {
+    $c['progress'] = course_progress((int)$c['id'], $uid);
+}
+unset($c);
+
+$teaching = in_array($me['role'], ['teacher', 'admin'], true)
+    ? db_all(course_list_sql() . ' WHERE c.id IN (SELECT course_id FROM course_teachers WHERE teacher_id = ?) ORDER BY c.code', [$uid])
+    : [];
+
+$pageTitle = 'วิชาของฉัน';
+require __DIR__ . '/includes/header.php';
+?>
+<div class="container py-4">
+    <?php if ($teaching): ?>
+        <h4 class="mb-3"><i class="bi bi-person-video3 text-vt"></i> รายวิชาที่ฉันสอน</h4>
+        <div class="row g-4 mb-5">
+            <?php foreach ($teaching as $c) include __DIR__ . '/includes/course_card.php'; ?>
+        </div>
+    <?php endif; ?>
+
+    <h4 class="mb-3"><i class="bi bi-journal-bookmark text-vt"></i> รายวิชาที่กำลังเรียน</h4>
+    <div class="row g-4">
+        <?php foreach ($learning as $c) include __DIR__ . '/includes/course_card.php'; ?>
+        <?php if (!$learning): ?>
+            <div class="col-12 text-center text-muted py-5">
+                <i class="bi bi-journal-x fs-1 d-block mb-2"></i>ยังไม่มีรายวิชา
+                <div class="mt-2"><a href="<?= url('courses.php') ?>" class="btn btn-vt">เลือกดูรายวิชา</a></div>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
+<?php require __DIR__ . '/includes/footer.php'; ?>

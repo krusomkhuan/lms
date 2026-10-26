@@ -1,0 +1,15 @@
+{
+    "name": "vocational-teacher/lms",
+    "description": "Vocational Teacher (ครูสมควรออนไลน์) — LMS with optional AI module",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.1",
+        "ext-curl": "*",
+        "ext-json": "*",
+        "anthropic-ai/sdk": "^0.59"
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}

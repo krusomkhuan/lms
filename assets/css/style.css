@@ -1,0 +1,81 @@
+:root {
+    --vt-primary: #0d3b66;
+    --vt-accent: #1b998b;
+    --vt-warm: #f4a259;
+    --vt-bg: #f5f7fb;
+}
+body { font-family: 'Prompt', 'Sarabun', sans-serif; background: var(--vt-bg); }
+a { text-decoration: none; }
+.navbar-vt { background: var(--vt-primary); }
+.navbar-vt .navbar-brand small { font-size: .7rem; display: block; color: var(--vt-warm); line-height: 1; }
+.btn-vt { background: var(--vt-accent); color: #fff; border: 0; }
+.btn-vt:hover { background: #157f73; color: #fff; }
+.text-vt { color: var(--vt-primary); }
+
+.hero {
+    background: linear-gradient(135deg, var(--vt-primary) 0%, var(--vt-accent) 100%);
+    color: #fff; padding: 4.5rem 0 5rem; position: relative; overflow: hidden;
+}
+.hero::after {
+    content: ''; position: absolute; right: -80px; bottom: -120px; width: 360px; height: 360px;
+    border-radius: 50%; background: rgba(255,255,255,.08);
+}
+.hero .slogan { color: var(--vt-warm); font-weight: 600; letter-spacing: .5px; }
+
+.course-card { border: 0; border-radius: 1rem; overflow: hidden; transition: transform .15s, box-shadow .15s; height: 100%; }
+.course-card:hover { transform: translateY(-4px); box-shadow: 0 .75rem 1.5rem rgba(13,59,102,.15); }
+.course-card .cover { aspect-ratio: 16/9; object-fit: cover; width: 100%; background: #dde; }
+.stat-card { border: 0; border-radius: 1rem; }
+.stat-card .icon { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+
+.lesson-list .list-group-item { border-left: 0; border-right: 0; }
+.lesson-list .list-group-item.active { background: #e6f4f2; color: var(--vt-primary); border-color: #dee2e6; font-weight: 600; }
+.lesson-content img { max-width: 100%; height: auto; }
+.lesson-content table { border-collapse: collapse; margin-bottom: 1rem; max-width: 100%; }
+.lesson-content th, .lesson-content td { border: 1px solid #ced4da; padding: .35rem .65rem; }
+.lesson-content th { background: #f1f3f5; }
+.lesson-content blockquote { border-left: 4px solid var(--vt-accent); padding-left: 1rem; color: #555; }
+.ratio iframe, video { border-radius: .75rem; }
+.avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+
+/* คู่มือการใช้งาน */
+.bg-vt { background: var(--vt-primary) !important; }
+.manual-tabs .nav-link { color: var(--vt-primary); }
+.manual-tabs .nav-link.active { background: var(--vt-primary); color: #fff; }
+.manual-steps { counter-reset: step; list-style: none; padding-left: 0; }
+.manual-steps > li { counter-increment: step; position: relative; padding: .35rem 0 .35rem 2.6rem; }
+.manual-steps > li::before {
+    content: counter(step); position: absolute; left: 0; top: .3rem; width: 1.8rem; height: 1.8rem; border-radius: 50%;
+    background: #e6f4f2; color: var(--vt-accent); font-weight: 600; display: flex; align-items: center; justify-content: center; font-size: .9rem;
+}
+.manual-section { scroll-margin-top: 80px; }
+.print-only { display: none; }
+@media print {
+    .navbar, footer, #cookieNotice, .no-print, .alert .btn-close { display: none !important; }
+    .print-only { display: block; }
+    body { background: #fff; }
+    .manual-section { box-shadow: none !important; border: 1px solid #ddd !important; break-inside: avoid; }
+    .col-lg-9 { width: 100% !important; flex: 0 0 100%; max-width: 100%; }
+    a { color: inherit; text-decoration: none; }
+}
+
+/* หลังบ้าน */
+.admin-wrap { display: flex; min-height: 100vh; }
+.admin-sidebar { width: 250px; background: #0b2e50; color: #cfd8e3; flex-shrink: 0; }
+.admin-sidebar .brand { padding: 1.1rem 1.25rem; color: #fff; border-bottom: 1px solid rgba(255,255,255,.08); }
+.admin-sidebar .brand small { color: var(--vt-warm); display: block; font-size: .75rem; }
+.admin-sidebar .nav-link { color: #cfd8e3; padding: .65rem 1.25rem; border-left: 3px solid transparent; }
+.admin-sidebar .nav-link:hover { background: rgba(255,255,255,.05); color: #fff; }
+.admin-sidebar .nav-link.active { background: rgba(27,153,139,.2); color: #fff; border-left-color: var(--vt-accent); }
+.admin-sidebar .nav-link i { width: 1.5rem; display: inline-block; }
+/* ออกจากระบบ: แดงอ่อนที่อ่านชัดบนพื้นน้ำเงินเข้ม */
+.admin-sidebar .nav-link.nav-logout { color: #ffa8a8; }
+.admin-sidebar .nav-link.nav-logout:hover { color: #fff; background: rgba(220, 53, 69, .35); border-left-color: #ff6b6b; }
+.admin-sidebar .admin-version { color: #9fb0c4; }
+.admin-main { flex: 1; min-width: 0; }
+.admin-topbar { background: #fff; border-bottom: 1px solid #e5e8ef; }
+.table > :not(caption) > * > * { vertical-align: middle; }
+@media (max-width: 991.98px) {
+    .admin-sidebar { position: fixed; z-index: 1040; height: 100vh; left: -260px; transition: left .2s; overflow-y: auto; }
+    .admin-sidebar.show { left: 0; }
+}

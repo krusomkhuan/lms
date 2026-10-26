@@ -1,0 +1,5 @@
+# ไม่ให้เปิดไฟล์ตั้งค่า/เอกสารภายในจากเว็บ
+RedirectMatch 404 (?i)/\.git(?:/|$)
+<FilesMatch "^(composer\.(json|lock)|README\.md|CHANGELOG\.md)$">
+    Require all denied
+</FilesMatch>
