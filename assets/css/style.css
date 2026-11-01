@@ -85,3 +85,13 @@ a { text-decoration: none; }
     .admin-sidebar { position: fixed; z-index: 1040; height: 100vh; left: -260px; transition: left .2s; overflow-y: auto; }
     .admin-sidebar.show { left: 0; }
 }
+
+/* ปุ่มรูปตาแสดง/ซ่อนรหัสผ่าน (assets/js/password-toggle.js) */
+.password-toggle-wrap { position: relative; }
+.password-toggle-wrap > input { padding-right: 2.75rem; }
+.password-toggle {
+    position: absolute; top: 50%; right: .35rem; transform: translateY(-50%);
+    border: 0; background: transparent; color: #6c757d; padding: .25rem .5rem; line-height: 1; border-radius: .375rem;
+}
+.password-toggle:hover, .password-toggle:focus-visible { color: var(--vt-primary); }
+.password-toggle:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: 1px; }
