@@ -40,6 +40,26 @@ $curPage = basename($_SERVER['SCRIPT_NAME']);
                     <?php if (in_array($me['role'], ['admin', 'teacher'], true) && !student_preview()): ?>
                         <li class="nav-item"><a class="nav-link" href="<?= url('admin/index.php') ?>"><i class="bi bi-speedometer2"></i> หลังบ้าน</a></li>
                     <?php endif; ?>
+                    <?php if ($me['role'] === 'student'): $pendingWork = student_pending_work((int)$me['id']); $pendingLate = count(array_filter($pendingWork, fn($w) => $w['late'])); ?>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link position-relative px-2" href="#" data-bs-toggle="dropdown" aria-label="งานค้างส่ง <?= count($pendingWork) ?> งาน" title="งานค้างส่ง">
+                                <i class="bi bi-bell<?= $pendingWork ? '-fill' : '' ?> fs-5"></i>
+                                <?php if ($pendingWork): ?><span class="position-absolute top-0 start-100 translate-middle badge rounded-pill <?= $pendingLate ? 'bg-danger' : 'bg-warning text-dark' ?>" style="margin-top:.6rem;margin-left:-.4rem"><?= count($pendingWork) ?></span><?php endif; ?>
+                            </a>
+                            <div class="dropdown-menu dropdown-menu-end p-0 shadow" style="width:min(22rem,92vw)">
+                                <div class="px-3 py-2 border-bottom fw-semibold"><i class="bi bi-journal-check"></i> งานค้างส่ง <?= $pendingWork ? '(' . count($pendingWork) . ')' : '' ?></div>
+                                <?php foreach (array_slice($pendingWork, 0, 6) as $w): ?>
+                                    <a class="dropdown-item py-2 text-wrap border-bottom" href="<?= e(pending_work_url($w)) ?>">
+                                        <div class="fw-semibold small"><?= e($w['title']) ?><?= $w['revision'] ? ' <span class="badge bg-warning text-dark">ครูให้แก้ไข</span>' : '' ?></div>
+                                        <div class="small text-muted"><?= e($w['course']) ?></div>
+                                        <div class="small <?= $w['late'] ? 'text-danger fw-semibold' : 'text-muted' ?>"><?= e(pending_work_due($w)) ?></div>
+                                    </a>
+                                <?php endforeach; ?>
+                                <?php if (!$pendingWork): ?><div class="px-3 py-3 small text-muted"><i class="bi bi-check-circle text-success"></i> ไม่มีงานค้างส่ง</div><?php endif; ?>
+                                <?php if (count($pendingWork) > 6): ?><a class="dropdown-item small text-center py-2" href="<?= url('my-courses.php') ?>">ดูทั้งหมด <?= count($pendingWork) ?> งาน</a><?php endif; ?>
+                            </div>
+                        </li>
+                    <?php endif; ?>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" data-bs-toggle="dropdown">
                             <img src="<?= e(avatar_url($me)) ?>" class="avatar" alt=""> <?= e($me['fullname']) ?>

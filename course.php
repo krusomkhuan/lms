@@ -17,8 +17,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $me = require_login();
     if (post('action') === 'enroll' && $course['enroll_type'] === 'open' && !$enrolled) {
-        db_exec('INSERT IGNORE INTO enrollments (course_id, user_id) VALUES (?, ?)', [$id, (int)$me['id']]);
-        flash('success', 'ลงทะเบียนเรียนเรียบร้อย เริ่มเรียนได้เลย!');
+        // ต้องกรอกรหัสลงทะเบียน (ค่าเริ่มต้น = รหัสวิชา) ผิดครบ 5 ครั้ง รอ 10 นาที
+        $fail = $_SESSION['enroll_fail'][$id] ?? ['n' => 0, 'at' => 0];
+        if ($fail['n'] >= 5 && time() - $fail['at'] < 600) {
+            flash('danger', 'กรอกรหัสลงทะเบียนผิดหลายครั้ง กรุณารอ ' . ceil((600 - (time() - $fail['at'])) / 60) . ' นาทีแล้วลองใหม่');
+        } elseif (!enroll_key_matches($course, post('enroll_key'))) {
+            $_SESSION['enroll_fail'][$id] = ['n' => ($fail['n'] >= 5 ? 0 : $fail['n']) + 1, 'at' => time()];
+            flash('danger', 'รหัสลงทะเบียนไม่ถูกต้อง กรุณาขอรหัสจากครูผู้สอน');
+        } else {
+            unset($_SESSION['enroll_fail'][$id]);
+            db_exec('INSERT IGNORE INTO enrollments (course_id, user_id) VALUES (?, ?)', [$id, (int)$me['id']]);
+            flash('success', 'ลงทะเบียนเรียนเรียบร้อย เริ่มเรียนได้เลย!');
+        }
     } elseif (post('action') === 'unenroll' && $selfEnrolled) {
         db_exec('DELETE FROM enrollments WHERE course_id = ? AND user_id = ?', [$id, (int)$me['id']]);
         flash('info', 'ยกเลิกการลงทะเบียนแล้ว');
@@ -80,7 +90,9 @@ require __DIR__ . '/includes/header.php';
                         <?php endif; ?>
                     <?php elseif ($course['enroll_type'] === 'open'): ?>
                         <?php if ($me): ?>
-                            <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="enroll">
+                            <form method="post" class="d-flex flex-wrap gap-2 align-items-start"><?= csrf_field() ?><input type="hidden" name="action" value="enroll">
+                                <div><input name="enroll_key" class="form-control" required maxlength="50" autocomplete="off" placeholder="รหัสลงทะเบียนเรียน" aria-label="รหัสลงทะเบียนเรียน" style="max-width:14rem">
+                                    <div class="small mt-1 opacity-75">ขอรหัสลงทะเบียนจากครูผู้สอน</div></div>
                                 <button class="btn btn-warning px-4"><i class="bi bi-box-arrow-in-right"></i> ลงทะเบียนเรียน</button></form>
                         <?php else: ?>
                             <a href="<?= url('login.php?next=' . urlencode($_SERVER['REQUEST_URI'])) ?>" class="btn btn-warning px-4">เข้าสู่ระบบเพื่อลงทะเบียน</a>

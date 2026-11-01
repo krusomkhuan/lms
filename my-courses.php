@@ -29,6 +29,18 @@ require __DIR__ . '/includes/header.php';
         </div>
     <?php endif; ?>
 
+    <?php $pendingWork = $me['role'] === 'student' ? student_pending_work($uid) : []; ?>
+    <?php if ($pendingWork): $pendingLate = count(array_filter($pendingWork, fn($w) => $w['late'])); ?>
+        <div class="alert <?= $pendingLate ? 'alert-danger' : 'alert-warning' ?> mb-4">
+            <div class="fw-semibold mb-2"><i class="bi bi-exclamation-triangle-fill"></i> คุณมีงานค้างส่ง <?= count($pendingWork) ?> งาน<?= $pendingLate ? ' (เลยกำหนดแล้ว ' . $pendingLate . ' งาน)' : '' ?></div>
+            <ul class="mb-0 ps-3">
+                <?php foreach ($pendingWork as $w): ?>
+                    <li class="mb-1"><a class="alert-link" href="<?= e(pending_work_url($w)) ?>"><?= e($w['title']) ?></a>
+                        <span class="small">· <?= e($w['course']) ?> · <span class="<?= $w['late'] ? 'fw-semibold' : '' ?>"><?= e(pending_work_due($w)) ?></span><?= $w['revision'] ? ' · ครูให้แก้ไขแล้วส่งใหม่' : '' ?></span></li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+    <?php endif; ?>
     <h4 class="mb-3"><i class="bi bi-journal-bookmark text-vt"></i> รายวิชาที่กำลังเรียน</h4>
     <div class="row g-4">
         <?php foreach ($learning as $c) include __DIR__ . '/includes/course_card.php'; ?>

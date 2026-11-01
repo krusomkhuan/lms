@@ -37,15 +37,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         flash('success', 'บันทึกกลุ่มเรียบร้อย');
     } elseif ($group && $action === 'add') {
-        $n = 0;
-        foreach ((array)post('user_ids', []) as $u) {
-            $n += db_exec("INSERT IGNORE INTO group_members (group_id, user_id) SELECT ?, id FROM users WHERE id = ? AND role = 'student'", [$id, (int)$u]);
-        }
+        // นักเรียน 1 คนอยู่ได้ 1 กลุ่ม: เพิ่มเข้ากลุ่มนี้ = ย้ายออกจากกลุ่มเดิม
+        $ids = array_map('intval', (array)post('user_ids', []));
         // เพิ่มด้วยรหัสนักศึกษา (บรรทัดละ 1 รหัส หรือคั่นด้วย , )
         foreach (preg_split('/[\s,]+/', (string)post('codes'), -1, PREG_SPLIT_NO_EMPTY) as $code) {
-            $n += db_exec("INSERT IGNORE INTO group_members (group_id, user_id) SELECT ?, id FROM users WHERE (student_code = ? OR username = ?) AND role = 'student'", [$id, $code, $code]);
+            $ids = array_merge($ids, array_map('intval', array_column(db_all("SELECT id FROM users WHERE (student_code = ? OR username = ?) AND role = 'student'", [$code, $code]), 'id')));
+        }
+        $n = 0; $moved = [];
+        foreach (array_unique($ids) as $u) {
+            if (!db_value("SELECT 1 FROM users WHERE id = ? AND role = 'student'", [$u]) || db_value('SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?', [$id, $u])) continue;
+            foreach (db_all('SELECT u.fullname, g.name FROM group_members gm JOIN users u ON u.id = gm.user_id JOIN student_groups g ON g.id = gm.group_id WHERE gm.user_id = ? AND gm.group_id <> ?', [$u, $id]) as $old) {
+                $moved[] = $old['fullname'] . ' (จาก ' . $old['name'] . ')';
+            }
+            db_exec('DELETE FROM group_members WHERE user_id = ? AND group_id <> ?', [$u, $id]);
+            db_exec('INSERT INTO group_members (group_id, user_id) VALUES (?, ?)', [$id, $u]);
+            $n++;
         }
         flash('success', "เพิ่มสมาชิก $n คน");
+        if ($moved) flash('warning', 'นักเรียน 1 คนอยู่ได้ 1 กลุ่ม จึงย้ายออกจากกลุ่มเดิม ' . count($moved) . ' คน: ' . implode(', ', $moved));
     } elseif ($group && $action === 'remove') {
         db_exec('DELETE FROM group_members WHERE group_id = ? AND user_id = ?', [$id, (int)post('user_id')]);
         flash('info', 'นำสมาชิกออกจากกลุ่มแล้ว');

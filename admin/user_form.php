@@ -38,8 +38,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 db_exec('UPDATE users SET password=? WHERE id=?', [password_hash(post('password'), PASSWORD_DEFAULT), $id]);
             }
         } else {
-            db_exec('INSERT INTO users (username,fullname,email,phone,student_code,role,status,password) VALUES (?,?,?,?,?,?,?,?)',
+            $id = db_exec('INSERT INTO users (username,fullname,email,phone,student_code,role,status,password) VALUES (?,?,?,?,?,?,?,?)',
                 array_merge($data, [password_hash(post('password'), PASSWORD_DEFAULT)]));
+        }
+        // กลุ่มเรียนของผู้เรียน: 1 คน 1 กลุ่ม ("keep" = ไม่เปลี่ยน ใช้เมื่อเดิมอยู่หลายกลุ่มและยังไม่ได้เลือก)
+        $groupChoice = post('group_id', 'keep');
+        if ($role === 'student' && $groupChoice !== 'keep') {
+            db_exec('DELETE FROM group_members WHERE user_id = ?', [$id]);
+            if ((int)$groupChoice > 0 && db_value('SELECT 1 FROM student_groups WHERE id = ?', [(int)$groupChoice])) {
+                db_exec('INSERT INTO group_members (group_id, user_id) VALUES (?, ?)', [(int)$groupChoice, $id]);
+            }
         }
         flash('success', 'บันทึกข้อมูลสมาชิกเรียบร้อย');
         redirect('admin/users.php?role=' . $role);
@@ -49,6 +57,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $v = fn($k, $d = '') => $_SERVER['REQUEST_METHOD'] === 'POST' ? post($k, $d) : ($user[$k] ?? $d);
 $curRole = $v('role', in_array($_GET['role'] ?? '', $roles, true) ? $_GET['role'] : 'student');
 $pageTitle = $user ? 'แก้ไขสมาชิก' : ($curRole === 'teacher' ? 'เพิ่มครูผู้สอน' : 'เพิ่มสมาชิก');
+$allGroups = db_all('SELECT id, name FROM student_groups ORDER BY name');
+$userGroups = $user ? db_all('SELECT g.id, g.name FROM group_members gm JOIN student_groups g ON g.id = gm.group_id WHERE gm.user_id = ? ORDER BY g.name', [$id]) : [];
+$groupValue = $_SERVER['REQUEST_METHOD'] === 'POST' ? (string)post('group_id', 'keep') : (count($userGroups) > 1 ? 'keep' : (string)($userGroups[0]['id'] ?? '0'));
 require __DIR__ . '/_top.php';
 ?>
 <a href="<?= url('admin/users.php') ?>"><i class="bi bi-arrow-left"></i> สมาชิกทั้งหมด</a>
@@ -72,8 +83,27 @@ require __DIR__ . '/_top.php';
             <div class="col-md-6"><label class="form-label">ชื่อผู้ใช้ *</label><input name="username" class="form-control" required value="<?= e($v('username')) ?>" autocomplete="off"></div>
             <div class="col-md-6"><label class="form-label">รหัสผ่าน <?= $user ? '<span class="small text-muted">(เว้นว่างหากไม่เปลี่ยน)</span>' : '*' ?></label>
                 <input name="password" type="password" class="form-control" <?= $user ? '' : 'required' ?> autocomplete="new-password"></div>
+            <div class="col-md-6" id="groupField"><label class="form-label" for="groupSelect">กลุ่มเรียน</label>
+                <select name="group_id" id="groupSelect" class="form-select">
+                    <?php if (count($userGroups) > 1): ?><option value="keep" <?= $groupValue === 'keep' ? 'selected' : '' ?>>— ยังไม่เปลี่ยน (อยู่ <?= count($userGroups) ?> กลุ่ม) —</option><?php endif; ?>
+                    <option value="0" <?= $groupValue === '0' ? 'selected' : '' ?>>— ไม่อยู่ในกลุ่ม —</option>
+                    <?php foreach ($allGroups as $g): ?><option value="<?= (int)$g['id'] ?>" <?= $groupValue === (string)$g['id'] ? 'selected' : '' ?>><?= e($g['name']) ?></option><?php endforeach; ?>
+                </select>
+                <?php if (count($userGroups) > 1): ?><div class="form-text text-danger"><i class="bi bi-exclamation-triangle"></i> ตอนนี้อยู่ <?= count($userGroups) ?> กลุ่ม: <?= e(implode(', ', array_column($userGroups, 'name'))) ?> — เลือกกลุ่มที่ถูกต้องแล้วกดบันทึก</div>
+                <?php else: ?><div class="form-text">ผู้เรียน 1 คนอยู่ได้ 1 กลุ่ม · เปลี่ยนกลุ่มแล้วสิทธิ์เรียนรายวิชาของกลุ่มจะเปลี่ยนตาม</div><?php endif; ?>
+            </div>
         </div>
         <button class="btn btn-vt mt-4 px-4"><i class="bi bi-save"></i> บันทึก</button>
     </div>
 </form>
+<script>
+    // ช่องกลุ่มเรียนแสดงเฉพาะประเภท "ผู้เรียน"
+    (function () {
+        var role = document.querySelector('[name=role]'), box = document.getElementById('groupField');
+        if (!role || !box) return;
+        var sync = function () { box.hidden = role.value !== 'student'; };
+        role.addEventListener('change', sync); sync();
+    })();
+</script>
+
 <?php require __DIR__ . '/_bottom.php'; ?>

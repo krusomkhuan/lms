@@ -216,6 +216,26 @@ function staff_manages_course(int $courseId): bool
     return (bool)db_value('SELECT 1 FROM course_teachers WHERE course_id = ? AND teacher_id = ?', [$courseId, (int)$u['id']]);
 }
 
+function enroll_key_ready(): bool
+{
+    static $ready;
+    return $ready ??= (bool)db_value("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'courses' AND column_name = 'enroll_key'");
+}
+
+/** รหัสลงทะเบียนเรียนของรายวิชา: ครูตั้งเอง หรือค่าเริ่มต้นเป็นรหัสวิชา */
+function course_enroll_key(array $course): string
+{
+    $key = trim((string)($course['enroll_key'] ?? ''));
+    return $key !== '' ? $key : trim((string)$course['code']);
+}
+
+/** เทียบรหัสลงทะเบียน: ไม่สนตัวพิมพ์เล็ก/ใหญ่และช่องว่าง */
+function enroll_key_matches(array $course, $input): bool
+{
+    $norm = fn($s) => mb_strtolower(preg_replace('/\s+/u', '', (string)$s));
+    return is_string($input) && $norm($input) !== '' && hash_equals($norm(course_enroll_key($course)), $norm($input));
+}
+
 /** ผู้ใช้จัดการรายวิชานี้ได้หรือไม่ (admin ทุกวิชา, ครูเฉพาะวิชาที่สอน; ปิดในโหมดมุมมองผู้เรียน) */
 function can_manage_course(int $courseId): bool
 {

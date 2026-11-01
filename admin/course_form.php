@@ -38,6 +38,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         db_exec('UPDATE courses SET ai_student_enabled = ? WHERE id = ?', [post('ai_student_enabled') ? 1 : 0, $id]);
         require_once ROOT_PATH . '/includes/lesson_lock.php';
         if (lesson_lock_ready()) db_exec('UPDATE courses SET sequential_lessons = ? WHERE id = ?', [post('sequential_lessons') ? 1 : 0, $id]);
+        if (enroll_key_ready()) {
+            $enrollKey = is_string(post('enroll_key')) ? trim(post('enroll_key')) : '';
+            if (mb_strlen($enrollKey) > 50) throw new RuntimeException('รหัสลงทะเบียนเรียนยาวได้ไม่เกิน 50 ตัวอักษร');
+            db_exec('UPDATE courses SET enroll_key = ? WHERE id = ?', [$enrollKey !== '' ? $enrollKey : null, $id]);
+        }
         // ไม่ได้อัปโหลดภาพเอง + เลือกสร้างอัตโนมัติ → สร้างภาพปกใหม่จากชื่อ/คำอธิบายล่าสุด
         if (!$cover && post('auto_cover')) {
             delete_upload($course['cover'] ?? null);
@@ -123,6 +128,11 @@ require __DIR__ . '/_top.php';
                         <option value="group" <?= $v('enroll_type', 'group') === 'group' ? 'selected' : '' ?>>เฉพาะกลุ่มที่ครูอนุมัติเข้าเรียน</option>
                     </select>
                     <div class="form-text mb-2">กลุ่มที่เลือกด้านล่างเข้าเรียนได้เสมอ ไม่ว่าจะตั้งค่าแบบใด</div>
+                    <?php if (enroll_key_ready()): ?>
+                        <label class="form-label mt-2" for="enrollKey"><i class="bi bi-key"></i> รหัสลงทะเบียนเรียน</label>
+                        <input name="enroll_key" id="enrollKey" maxlength="50" class="form-control" value="<?= e($v('enroll_key')) ?>" placeholder="<?= e($v('code') ?: 'เว้นว่าง = ใช้รหัสวิชา') ?>" autocomplete="off">
+                        <div class="form-text mb-2">ผู้เรียนต้องกรอกรหัสนี้เมื่อลงทะเบียนเอง · เว้นว่าง = ใช้<b>รหัสวิชา</b> (ซึ่งแสดงบนหน้ารายวิชา บุคคลภายนอกเห็นได้) · แนะนำตั้งรหัสเองแล้วแจ้งเฉพาะนักเรียนในห้อง</div>
+                    <?php endif; ?>
                     <?php $seqOn = $_SERVER['REQUEST_METHOD'] === 'POST' ? (bool)post('sequential_lessons') : (int)($course['sequential_lessons'] ?? 1) === 1; ?>
                     <div class="form-check form-switch mt-3">
                         <input class="form-check-input" type="checkbox" name="sequential_lessons" value="1" id="seqLessons" <?= $seqOn ? 'checked' : '' ?>>

@@ -65,6 +65,7 @@ CREATE TABLE courses (
   credits VARCHAR(20) NULL,
   cover VARCHAR(255) NULL,
   enroll_type ENUM('open','group') NOT NULL DEFAULT 'open',
+  enroll_key VARCHAR(50) NULL,                        -- รหัสลงทะเบียนเรียน (ว่าง = ใช้รหัสวิชา)
   status ENUM('published','draft') NOT NULL DEFAULT 'draft',
   ai_student_enabled TINYINT(1) NOT NULL DEFAULT 1,   -- เปิดผู้ช่วย AI ของผู้เรียนในวิชานี้
   sequential_lessons TINYINT(1) NOT NULL DEFAULT 1,   -- บังคับเรียนบทเรียนตามลำดับ

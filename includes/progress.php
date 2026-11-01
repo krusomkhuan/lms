@@ -72,3 +72,48 @@ function staff_courses(array $me): array
         ? db_all("SELECT c.id, c.code, c.title, c.status, $bankCount AS bank_count FROM courses c ORDER BY c.code")
         : db_all("SELECT c.id, c.code, c.title, c.status, $bankCount AS bank_count FROM courses c JOIN course_teachers ct ON ct.course_id = c.id AND ct.teacher_id = ? ORDER BY c.code", [(int)$me['id']]);
 }
+
+/**
+ * งานค้างส่งของนักเรียน (ยังไม่ส่ง หรือครูให้แก้ไข) ที่ยังส่งได้ในรายวิชาที่เรียนอยู่
+ * คืนรายการ ['course','title','lesson_id','media_id','due','late','revision'] เรียง เลยกำหนด → ใกล้กำหนด → ไม่มีกำหนด
+ */
+function student_pending_work(int $userId): array
+{
+    static $cache = [];
+    if (isset($cache[$userId])) return $cache[$userId];
+    if (!assignments_ready()) return $cache[$userId] = [];
+    $latest = [];
+    foreach (db_all('SELECT lesson_id, source_media_id, status FROM assignment_submissions WHERE user_id = ? ORDER BY id', [$userId]) as $s) {
+        $latest[$s['lesson_id'] . ':' . $s['source_media_id']] = $s['status'];
+    }
+    $items = [];
+    foreach (db_all("SELECT c.id, c.title FROM courses c WHERE c.status = 'published' AND c.id IN " . student_course_ids_sql(), [$userId, $userId]) as $course) {
+        $lessons = [];
+        foreach (db_all('SELECT * FROM lessons WHERE course_id = ? AND is_published = 1', [(int)$course['id']]) as $l) {
+            if (lesson_schedule_open($l)) $lessons[(int)$l['id']] = $l;
+        }
+        foreach (grade_sources((int)$course['id']) as $source) {
+            if ($source['media_type'] !== 'assignment' || !$source['is_published'] || !isset($lessons[(int)$source['lesson_id']])) continue;
+            $status = $latest[$source['lesson_id'] . ':' . $source['source_media_id']] ?? null;
+            if ($status !== null && $status !== 'revision') continue;
+            $state = assignment_schedule_state($source);
+            if ($state !== 'open' && $state !== 'late') continue;
+            $items[] = ['course' => $course['title'], 'title' => $source['title'], 'lesson_id' => (int)$source['lesson_id'], 'media_id' => (int)$source['source_media_id'],
+                'due' => $source['submission_due_at'] ?? null, 'late' => $state === 'late', 'revision' => $status === 'revision'];
+        }
+    }
+    usort($items, fn($a, $b) => [!$a['late'], $a['due'] === null, $a['due']] <=> [!$b['late'], $b['due'] === null, $b['due']]);
+    return $cache[$userId] = $items;
+}
+
+/** ลิงก์และคำอธิบายกำหนดส่งของงานค้าง */
+function pending_work_url(array $item): string
+{
+    return url('lesson.php?id=' . $item['lesson_id'] . ($item['media_id'] ? '&media_id=' . $item['media_id'] : ''));
+}
+
+function pending_work_due(array $item): string
+{
+    if ($item['late']) return 'เลยกำหนด ' . thai_date($item['due'], true) . ' (ยังส่งได้ ติดสถานะส่งล่าช้า)';
+    return $item['due'] ? 'กำหนดส่ง ' . thai_date($item['due'], true) : 'ไม่กำหนดวันส่ง';
+}
