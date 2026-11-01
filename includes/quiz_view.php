@@ -64,7 +64,11 @@
                 <?php endforeach; ?>
             </fieldset>
         <?php endforeach; ?>
-        <?php if ($me['role'] === 'student'): ?><button class="btn btn-vt" type="submit">ส่งคำตอบและบันทึกคะแนน</button><?php endif; ?>
+        <?php if ($me['role'] === 'student'): ?><button class="btn btn-vt" type="submit">ส่งคำตอบและบันทึกคะแนน</button>
+        <?php else: ?>
+            <button class="btn btn-vt" type="button" disabled>ส่งคำตอบและบันทึกคะแนน</button>
+            <div class="small text-muted mt-2"><i class="bi bi-info-circle"></i> <?= student_preview() ? 'มุมมองสำหรับผู้เรียนเป็นโหมดดูอย่างเดียว ส่งคำตอบไม่ได้' : 'บัญชีครู/ผู้ดูแลระบบส่งคำตอบไม่ได้' ?> — ทดลองทำและดูคะแนนจริงด้วยบัญชีนักเรียน</div>
+        <?php endif; ?>
     </form>
     <?php if ($lockActive): ?>
         <div id="quizLockOverlay" class="quiz-lock-overlay" role="alertdialog" aria-modal="true" aria-labelledby="quizLockTitle" hidden>

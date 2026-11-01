@@ -169,6 +169,7 @@ U3,CSV question,ข,no,yes
     }
     $html = request_page($teacher, 'lesson.php?id=' . $post);
     ensure(str_contains($html, 'name="submission_token"') && str_contains($html, 'ปิดสอบ'), 'Teacher preview outside window');
+    ensure(str_contains($html, 'บัญชีครู/ผู้ดูแลระบบส่งคำตอบไม่ได้') && str_contains($html, 'type="button" disabled>ส่งคำตอบและบันทึกคะแนน'), 'Teacher sees disabled submit with reason');
     db_exec('UPDATE lessons SET quiz_data = ? WHERE id = ?', [quiz_validate(json_encode(array_merge($config, ['closes_at' => date('Y-m-d\TH:i', time() + 3600)]))), $post]);
     $html = request_page($student, 'lesson.php?id=' . $post);
     db_exec('UPDATE lessons SET quiz_data = ? WHERE id = ?', [quiz_validate(json_encode(array_merge($config, ['closes_at' => date('Y-m-d\TH:i', time() - 60)]))), $post]);
