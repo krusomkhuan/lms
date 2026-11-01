@@ -126,6 +126,12 @@ U3,CSV question,ข,no,yes
     foreach (['summary' => 'สุ่ม 3 ข้อจากคลัง (U1) · ทำได้ 1 ครั้ง', 'button' => 'quiz=post'] as $what => $needle) ensure(str_contains($edit, $needle), 'Lesson pre/post box: ' . $what); ensure(!str_contains(explode('id="box-url"', explode('id="box-quiz"', $edit)[1])[0], 'value="' . $pre . ':0">'), 'No self pair');
     $result = request_page($teacher, 'admin/lesson_form.php?id=' . $pre, ['csrf' => field($edit, 'csrf'), 'title' => 'Pre fixture', 'media_type' => 'quiz', 'quiz_data' => $quiz(['kind' => 'post', 'pair' => $pre . ':0', 'max_attempts' => 1]), 'is_published' => '1']);
     ensure(str_contains($result, 'จับคู่กับตัวเองไม่ได้') && quiz_parse((string)db_value('SELECT quiz_data FROM lessons WHERE id = ?', [$pre]))['kind'] === 'pre', 'Self pair rejected');
+    // ปุ่มแสดง/ซ่อนในกล่องก่อน–หลังเรียน (แบบทดสอบเป็นเนื้อหาหลัก = ทั้งบท) กลับมาหน้าแก้ไขบทเรียน
+    ensure(str_contains($edit, '(ทั้งบท)') && str_contains($edit, 'name="back" value="form"'), 'Show/hide button in pre/post box');
+    $after = request_page($teacher, 'admin/lessons.php?course_id=' . $course, ['csrf' => field($edit, 'csrf'), 'id' => $pre, 'action' => 'toggle', 'back' => 'form']);
+    ensure(!(int)db_value('SELECT is_published FROM lessons WHERE id = ?', [$pre]) && str_contains(curl_getinfo($teacher, CURLINFO_EFFECTIVE_URL), 'lesson_form.php?id=' . $pre) && str_contains($after, 'bi-eye-slash'), 'Hide from pre/post box');
+    request_page($teacher, 'admin/lessons.php?course_id=' . $course, ['csrf' => field($edit, 'csrf'), 'id' => $pre, 'action' => 'toggle', 'back' => 'form']);
+    ensure((int)db_value('SELECT is_published FROM lessons WHERE id = ?', [$pre]) === 1, 'Show again from pre/post box');
     $preset = request_page($teacher, 'admin/lesson_form.php?lesson_id=' . $pre . '&quiz=post');
     $presetConfig = json_decode(field($preset, 'quiz_data'), true);
     ensure($presetConfig['kind'] === 'post' && $presetConfig['pair'] === $pre . ':0' && $presetConfig['source'] === 'bank' && $presetConfig['max_attempts'] === 1 && $presetConfig['count'] === 3 && $presetConfig['categories'] === ['U1'] && str_contains($preset, 'value="แบบทดสอบหลังเรียน Pre fixture"'), 'Post-test preset');

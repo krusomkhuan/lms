@@ -39,6 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
         }
     }
+    // ปุ่มแสดง/ซ่อนจากหน้าแก้ไขบทเรียน กลับไปหน้าเดิม
+    if ($lesson && post('back') === 'form') redirect('admin/lesson_form.php?id=' . $lid . '#media-list');
     redirect('admin/lessons.php?course_id=' . $courseId);
 }
 

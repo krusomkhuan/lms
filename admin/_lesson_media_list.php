@@ -28,7 +28,16 @@ $quizBadge = function (?array $row) use ($lessonQuizzes, $lesson) {
                     <div class="fw-semibold mb-1"><i class="bi <?= $icon ?> text-<?= $color ?>"></i> <?= e(QUIZ_KINDS[$kind]) ?></div>
                     <?php foreach ($found as $key => $q): ?>
                         <div class="small mb-2">
-                            <a href="<?= url($q['media_id'] ? 'admin/lesson_form.php?media_id=' . $q['media_id'] : 'admin/lesson_form.php?id=' . $lesson['id']) ?>"><?= e($q['title']) ?></a><?= $q['published'] ? '' : ' <span class="badge bg-secondary">ซ่อน</span>' ?>
+                            <div class="d-flex justify-content-between align-items-start gap-2">
+                                <a href="<?= url($q['media_id'] ? 'admin/lesson_form.php?media_id=' . $q['media_id'] : 'admin/lesson_form.php?id=' . $lesson['id']) ?>"><?= e($q['title']) ?></a>
+                                <?php if ($q['media_id']): ?>
+                                    <form method="post" action="<?= url('admin/lesson_media_action.php') ?>"><?= csrf_field() ?><input type="hidden" name="media_id" value="<?= (int)$q['media_id'] ?>">
+                                        <button class="btn btn-sm text-nowrap <?= $q['published'] ? 'btn-outline-success' : 'btn-outline-secondary' ?>" name="action" value="toggle" title="กดเพื่อ<?= $q['published'] ? 'ซ่อนจาก' : 'แสดงให้' ?>ผู้เรียน"><i class="bi <?= $q['published'] ? 'bi-eye' : 'bi-eye-slash' ?>"></i> <?= $q['published'] ? 'แสดง' : 'ซ่อน' ?></button></form>
+                                <?php else: ?>
+                                    <form method="post" action="<?= url('admin/lessons.php?course_id=' . (int)$courseId) ?>" data-confirm="แบบทดสอบนี้เป็นเนื้อหาหลักของบทเรียน การ<?= $q['published'] ? 'ซ่อน' : 'แสดง' ?>จะมีผลกับทั้งบทเรียน ยืนยัน?"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int)$lesson['id'] ?>"><input type="hidden" name="back" value="form">
+                                        <button class="btn btn-sm text-nowrap <?= $q['published'] ? 'btn-outline-success' : 'btn-outline-secondary' ?>" name="action" value="toggle" title="แสดง/ซ่อนทั้งบทเรียน"><i class="bi <?= $q['published'] ? 'bi-eye' : 'bi-eye-slash' ?>"></i> <?= $q['published'] ? 'แสดง' : 'ซ่อน' ?> (ทั้งบท)</button></form>
+                                <?php endif; ?>
+                            </div>
                             <div class="text-muted"><?= e(quiz_summary($q['config'])) ?></div>
                             <?php if ($kind === 'post'): $pairTitle = $q['config']['pair'] ? (grade_sources((int)$courseId)['quiz:' . $q['config']['pair']]['title'] ?? null) : null; ?>
                                 <div class="<?= $pairTitle ? 'text-muted' : 'text-danger' ?>"><i class="bi bi-link-45deg"></i> <?= $pairTitle ? 'เปรียบเทียบกับ: ' . e($pairTitle) : 'ยังไม่ได้เลือกแบบทดสอบก่อนเรียนที่ใช้เปรียบเทียบ' ?></div>
