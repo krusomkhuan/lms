@@ -430,6 +430,6 @@ require __DIR__ . '/_top.php';
         update();
     })();
 </script>
-<script src="<?= url('assets/js/quiz-builder.js') ?>"></script>
+<script src="<?= url('assets/js/quiz-builder.js') ?>?v=<?= (int)@filemtime(ROOT_PATH . '/assets/js/quiz-builder.js') ?>"></script>
 <?php $editorSelector = '#lessonContent'; require __DIR__ . '/_editor.php'; ?>
 <?php require __DIR__ . '/_bottom.php'; ?>
