@@ -148,6 +148,18 @@ require __DIR__ . '/includes/header.php';
                                 <div class="ratio" style="--bs-aspect-ratio:120%"><iframe src="<?= e($fileUrl ?: $media['media_url']) ?>" title="<?= e($media['title']) ?>"></iframe></div>
                                 <a href="<?= e($fileUrl ?: $media['media_url']) ?>" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary mt-2"><i class="bi bi-box-arrow-up-right"></i> เปิดในแท็บใหม่</a>
                                 <?php break;
+                            case 'slides':
+                                $slides = slides_embed($media, $fileUrl); ?>
+                                <?php if ($slides['embed']): ?>
+                                    <div class="ratio ratio-16x9 border rounded-3 overflow-hidden"><iframe src="<?= e($slides['embed']) ?>" title="<?= e($media['title']) ?>" allowfullscreen></iframe></div>
+                                <?php elseif ($slides['local']): ?>
+                                    <div class="alert alert-info small"><i class="bi bi-info-circle"></i> ตัวอย่างสไลด์แสดงได้เมื่อเว็บอยู่บนเซิร์ฟเวอร์จริง (เครื่องทดสอบ localhost ใช้ปุ่มดาวน์โหลดแทน)</div>
+                                <?php endif; ?>
+                                <div class="d-flex flex-wrap gap-2 mt-2">
+                                    <?php if ($fileUrl): ?><a href="<?= e($fileUrl) ?>" download class="btn btn-sm btn-outline-danger"><i class="bi bi-download"></i> ดาวน์โหลดไฟล์ (.<?= e(pathinfo($media['file_path'], PATHINFO_EXTENSION)) ?>)</a><?php endif; ?>
+                                    <?php if ($slides['open']): ?><a href="<?= e($slides['open']) ?>" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary"><i class="bi bi-box-arrow-up-right"></i> เปิดในแท็บใหม่</a><?php endif; ?>
+                                </div>
+                                <?php break;
                             case 'image': ?>
                                 <img src="<?= e($fileUrl ?: $media['media_url']) ?>" class="img-fluid rounded-3" alt="<?= e($media['title']) ?>">
                                 <?php break;

@@ -297,6 +297,7 @@ function media_types(): array
         'youtube' => ['label' => 'วิดีโอ YouTube', 'icon' => 'bi-youtube', 'color' => 'danger'],
         'video'   => ['label' => 'ไฟล์วิดีโอ', 'icon' => 'bi-camera-video', 'color' => 'danger'],
         'pdf'     => ['label' => 'เอกสาร PDF', 'icon' => 'bi-file-earmark-pdf', 'color' => 'warning'],
+        'slides'  => ['label' => 'งานนำเสนอ PowerPoint', 'icon' => 'bi-file-earmark-slides', 'color' => 'danger'],
         'assignment' => ['label' => 'งานมอบหมาย / ส่งงาน', 'icon' => 'bi-journal-check', 'color' => 'primary'],
         'quiz'    => ['label' => 'แบบทดสอบปรนัย', 'icon' => 'bi-ui-checks', 'color' => 'info'],
         'file'    => ['label' => 'ไฟล์ดาวน์โหลด', 'icon' => 'bi-download', 'color' => 'info'],
@@ -307,11 +308,19 @@ function media_types(): array
 }
 
 /** นามสกุลไฟล์ที่อนุญาตตามชนิดสื่อ */
+/** ฐานข้อมูลรองรับสื่อชนิด PowerPoint แล้วหรือยัง (database/migrations/1.15.2.sql) */
+function slides_ready(): bool
+{
+    static $ready;
+    return $ready ??= (bool)db_value("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'lessons' AND column_name = 'media_type' AND column_type LIKE '%''slides''%'");
+}
+
 function allowed_ext(string $mediaType): array
 {
     return [
         'video' => ['mp4', 'webm', 'ogg', 'mov'],
         'pdf'   => ['pdf'],
+        'slides' => ['pptx', 'ppt', 'ppsx', 'pps', 'odp'],
         'image' => ['jpg', 'jpeg', 'png', 'gif', 'webp'],
         'audio' => ['mp3', 'wav', 'ogg', 'm4a'],
         'file'  => ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'rar', 'txt', 'jpg', 'png'],
@@ -389,4 +398,26 @@ function course_cover(array $c): string
 function avatar_url(?array $u): string
 {
     return !empty($u['avatar']) ? upload_url($u['avatar']) : url('assets/img/avatar.svg');
+}
+
+/**
+ * แสดงสไลด์ PowerPoint ในหน้าเว็บ: ไฟล์ที่อัปโหลดใช้ Office Online viewer (ต้องเป็นเว็บที่ Microsoft เข้าถึงได้),
+ * ลิงก์ Google Slides แปลงเป็นลิงก์ฝัง, ลิงก์อื่น (OneDrive/Canva) ฝังตามที่ได้รับ
+ * คืน ['embed' => URL สำหรับ iframe|null, 'open' => URL เปิดแท็บใหม่|null, 'local' => true เมื่อเป็น localhost จึงพรีวิวไม่ได้]
+ */
+function slides_embed(array $media, string $fileUrl): array
+{
+    if ($fileUrl !== '') {
+        // BASE_URL อาจเป็นแค่ path (เช่น /lms) → ต่อโดเมนจากคำขอปัจจุบัน ให้ Office viewer ดึงไฟล์ได้
+        $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || strtolower($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+        $absolute = preg_match('~^https?://~i', $fileUrl) ? $fileUrl : ($https ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . $fileUrl;
+        $host = strtolower((string)parse_url($absolute, PHP_URL_HOST));
+        $local = $host === 'localhost' || $host === '::1' || str_ends_with($host, '.localhost') || str_ends_with($host, '.test') || preg_match('/^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/', $host);
+        return ['embed' => $local ? null : 'https://view.officeapps.live.com/op/embed.aspx?src=' . rawurlencode($absolute), 'open' => $local ? null : 'https://view.officeapps.live.com/op/view.aspx?src=' . rawurlencode($absolute), 'local' => (bool)$local];
+    }
+    $url = (string)$media['media_url'];
+    if (preg_match('~^https://docs\.google\.com/presentation/d/([A-Za-z0-9_-]+)~', $url, $m)) {
+        return ['embed' => 'https://docs.google.com/presentation/d/' . $m[1] . '/embed?start=false&loop=false', 'open' => $url, 'local' => false];
+    }
+    return ['embed' => preg_match('~^https://~i', $url) ? $url : null, 'open' => $url ?: null, 'local' => false];
 }

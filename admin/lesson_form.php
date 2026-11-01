@@ -31,8 +31,9 @@ if (!$course || ($id && !$lesson) || !can_manage_course($courseId)) {
 }
 
 $types = media_types();
+if (!slides_ready()) unset($types['slides']);
 if (($lesson['media_type'] ?? '') !== 'file') unset($types['file']);
-$fileTypes = ['video', 'pdf', 'file', 'image', 'audio'];
+$fileTypes = ['video', 'pdf', 'slides', 'file', 'image', 'audio'];
 $isNewLesson = !$isMedia && !$lesson;
 $linkRows = [];
 $urls = (array)post('extra_urls', []);
@@ -351,6 +352,7 @@ require __DIR__ . '/_top.php';
             link: {url: true, file: false, label: 'ลิงก์เว็บไซต์ภายนอก', help: 'เช่น Google Drive, Canva, Padlet, Kahoot, Google Form'},
             video: {url: true, file: true, label: 'ลิงก์ไฟล์วิดีโอ (ไม่บังคับ)', ext: '<?= implode(', ', allowed_ext('video')) ?>'},
             pdf: {url: true, file: true, label: 'ลิงก์ไฟล์ PDF (ไม่บังคับ)', ext: 'pdf'},
+            slides: {url: true, file: true, label: 'หรือลิงก์ Google Slides / OneDrive / Canva (ไม่บังคับ)', help: 'อัปโหลดไฟล์ .pptx หรือวางลิงก์ที่เปิดดูได้ (แชร์แบบทุกคนที่มีลิงก์)', ext: '<?= implode(', ', allowed_ext('slides')) ?>'},
             file: {url: false, file: true, ext: '<?= implode(', ', allowed_ext('file')) ?>'},
             image: {url: true, file: true, label: 'ลิงก์รูปภาพ (ไม่บังคับ)', ext: '<?= implode(', ', allowed_ext('image')) ?>'},
             audio: {url: true, file: true, label: 'ลิงก์ไฟล์เสียง (ไม่บังคับ)', ext: '<?= implode(', ', allowed_ext('audio')) ?>'}
