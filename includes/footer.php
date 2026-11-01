@@ -22,7 +22,7 @@
     </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="<?= url('assets/js/password-toggle.js') ?>?v=<?= e(APP_VERSION) ?>"></script>
+<script src="<?= url('assets/js/password-toggle.js') ?>?v=<?= (int)@filemtime(ROOT_PATH . '/assets/js/password-toggle.js') ?>"></script>
 <script>
     (function () {
         var key = 'vt_cookie_notice', box = document.getElementById('cookieNotice');

@@ -4,11 +4,15 @@
         if (input.closest('.password-toggle-wrap')) return;
         const wrap = document.createElement('div');
         wrap.className = 'password-toggle-wrap';
+        // จัดตำแหน่งในสคริปต์ด้วย ปุ่มจึงอยู่บรรทัดเดียวกับช่องรหัสผ่านแม้ style.css ยังเป็นไฟล์เก่าในแคช
+        wrap.style.position = 'relative';
+        input.style.paddingRight = '2.75rem';
         input.parentNode.insertBefore(wrap, input);
         wrap.append(input);
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'password-toggle';
+        Object.assign(button.style, {position: 'absolute', top: '50%', right: '.35rem', transform: 'translateY(-50%)', border: '0', background: 'transparent', padding: '.25rem .5rem', lineHeight: '1'});
         button.setAttribute('aria-label', 'แสดงรหัสผ่าน');
         button.setAttribute('aria-pressed', 'false');
         button.innerHTML = '<i class="bi bi-eye"></i>';
