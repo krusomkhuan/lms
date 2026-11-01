@@ -297,22 +297,28 @@ function media_types(): array
         'youtube' => ['label' => 'วิดีโอ YouTube', 'icon' => 'bi-youtube', 'color' => 'danger'],
         'video'   => ['label' => 'ไฟล์วิดีโอ', 'icon' => 'bi-camera-video', 'color' => 'danger'],
         'pdf'     => ['label' => 'เอกสาร PDF', 'icon' => 'bi-file-earmark-pdf', 'color' => 'warning'],
-        'slides'  => ['label' => 'งานนำเสนอ PowerPoint', 'icon' => 'bi-file-earmark-slides', 'color' => 'danger'],
+        'slides'  => ['label' => 'สื่อนำเสนอ PowerPoint', 'icon' => 'bi-file-earmark-slides', 'color' => 'danger'],
         'assignment' => ['label' => 'งานมอบหมาย / ส่งงาน', 'icon' => 'bi-journal-check', 'color' => 'primary'],
         'quiz'    => ['label' => 'แบบทดสอบปรนัย', 'icon' => 'bi-ui-checks', 'color' => 'info'],
         'file'    => ['label' => 'ไฟล์ดาวน์โหลด', 'icon' => 'bi-download', 'color' => 'info'],
         'image'   => ['label' => 'รูปภาพ / อินโฟกราฟิก', 'icon' => 'bi-image', 'color' => 'success'],
+        'mindmap' => ['label' => 'แผนผังความคิด', 'icon' => 'bi-diagram-3', 'color' => 'success'],
         'audio'   => ['label' => 'ไฟล์เสียง / Podcast', 'icon' => 'bi-music-note-beamed', 'color' => 'primary'],
         'link'    => ['label' => 'ลิงก์ภายนอก', 'icon' => 'bi-link-45deg', 'color' => 'dark'],
     ];
 }
 
 /** นามสกุลไฟล์ที่อนุญาตตามชนิดสื่อ */
-/** ฐานข้อมูลรองรับสื่อชนิด PowerPoint แล้วหรือยัง (database/migrations/1.15.2.sql) */
+/** ฐานข้อมูลรองรับสื่อชนิดนี้แล้วหรือยัง (slides: migrations/1.15.2.sql, mindmap: 1.15.3.sql) */
+function media_type_ready(string $type): bool
+{
+    static $ready = [];
+    return $ready[$type] ??= (bool)db_value("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'lessons' AND column_name = 'media_type' AND column_type LIKE ?", ["%'" . $type . "'%"]);
+}
+
 function slides_ready(): bool
 {
-    static $ready;
-    return $ready ??= (bool)db_value("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'lessons' AND column_name = 'media_type' AND column_type LIKE '%''slides''%'");
+    return media_type_ready('slides');
 }
 
 function allowed_ext(string $mediaType): array
@@ -321,6 +327,7 @@ function allowed_ext(string $mediaType): array
         'video' => ['mp4', 'webm', 'ogg', 'mov'],
         'pdf'   => ['pdf'],
         'slides' => ['pptx', 'ppt', 'ppsx', 'pps', 'odp'],
+        'mindmap' => ['png', 'jpg', 'jpeg', 'webp', 'gif', 'pdf'],
         'image' => ['jpg', 'jpeg', 'png', 'gif', 'webp'],
         'audio' => ['mp3', 'wav', 'ogg', 'm4a'],
         'file'  => ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'rar', 'txt', 'jpg', 'png'],
@@ -420,4 +427,17 @@ function slides_embed(array $media, string $fileUrl): array
         return ['embed' => 'https://docs.google.com/presentation/d/' . $m[1] . '/embed?start=false&loop=false', 'open' => $url, 'local' => false];
     }
     return ['embed' => preg_match('~^https://~i', $url) ? $url : null, 'open' => $url ?: null, 'local' => false];
+}
+
+/** ลิงก์แผนผังความคิดสำหรับฝังใน iframe: Canva (/view → ?embed), Miro (live-embed), อื่น ๆ ใช้ลิงก์ https ตามเดิม */
+function mindmap_embed(string $url): ?string
+{
+    if (!preg_match('~^https://~i', $url)) return null;
+    if (preg_match('~^https://www\.canva\.com/design/([A-Za-z0-9_-]+)/([A-Za-z0-9_-]+)/view~', $url, $m)) {
+        return 'https://www.canva.com/design/' . $m[1] . '/' . $m[2] . '/view?embed';
+    }
+    if (preg_match('~^https://miro\.com/app/board/([A-Za-z0-9_=-]+)~', $url, $m)) {
+        return 'https://miro.com/app/live-embed/' . $m[1] . '/';
+    }
+    return $url;
 }

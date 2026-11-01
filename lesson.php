@@ -160,6 +160,22 @@ require __DIR__ . '/includes/header.php';
                                     <?php if ($slides['open']): ?><a href="<?= e($slides['open']) ?>" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary"><i class="bi bi-box-arrow-up-right"></i> เปิดในแท็บใหม่</a><?php endif; ?>
                                 </div>
                                 <?php break;
+                            case 'mindmap':
+                                $mapExt = strtolower(pathinfo((string)$media['file_path'], PATHINFO_EXTENSION));
+                                $mapEmbed = $fileUrl ? null : mindmap_embed((string)$media['media_url']); ?>
+                                <?php if ($fileUrl && $mapExt === 'pdf'): ?>
+                                    <div class="ratio" style="--bs-aspect-ratio:75%"><iframe src="<?= e($fileUrl) ?>" title="<?= e($media['title']) ?>"></iframe></div>
+                                <?php elseif ($fileUrl): ?>
+                                    <a href="<?= e($fileUrl) ?>" target="_blank" rel="noopener" title="คลิกเพื่อเปิดภาพเต็มขนาดและซูม"><img src="<?= e($fileUrl) ?>" class="img-fluid rounded-3 border w-100" alt="<?= e($media['title']) ?>"></a>
+                                    <div class="small text-muted mt-1"><i class="bi bi-zoom-in"></i> คลิกที่ภาพเพื่อเปิดเต็มขนาดและซูม</div>
+                                <?php elseif ($mapEmbed): ?>
+                                    <div class="ratio ratio-16x9 border rounded-3 overflow-hidden"><iframe src="<?= e($mapEmbed) ?>" title="<?= e($media['title']) ?>" allowfullscreen></iframe></div>
+                                <?php endif; ?>
+                                <div class="d-flex flex-wrap gap-2 mt-2">
+                                    <?php if ($fileUrl): ?><a href="<?= e($fileUrl) ?>" download class="btn btn-sm btn-outline-success"><i class="bi bi-download"></i> ดาวน์โหลด (.<?= e($mapExt) ?>)</a><?php endif; ?>
+                                    <?php if (!$fileUrl && $media['media_url']): ?><a href="<?= e($media['media_url']) ?>" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary"><i class="bi bi-box-arrow-up-right"></i> เปิดในแท็บใหม่</a><?php endif; ?>
+                                </div>
+                                <?php break;
                             case 'image': ?>
                                 <img src="<?= e($fileUrl ?: $media['media_url']) ?>" class="img-fluid rounded-3" alt="<?= e($media['title']) ?>">
                                 <?php break;

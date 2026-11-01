@@ -50,7 +50,7 @@ try {
 
     $form = 'admin/lesson_form.php?course_id=' . $course;
     $html = request_page($teacher, $form);
-    ensure(str_contains($html, 'data-media-type="slides"') && str_contains($html, 'งานนำเสนอ PowerPoint'), 'Slides type offered');
+    ensure(str_contains($html, 'data-media-type="slides"') && str_contains($html, 'สื่อนำเสนอ PowerPoint'), 'Slides type offered');
     $pptx = sys_get_temp_dir() . '/slides_' . bin2hex(random_bytes(4)) . '.pptx';
     file_put_contents($pptx, "PK\x03\x04 fixture");
     // อัปโหลดเป็นสื่อหลัก + ลิงก์ Google Slides เป็นสื่อเพิ่มเติม
@@ -76,7 +76,26 @@ try {
     ensure(str_contains($page, 'ตัวอย่างสไลด์แสดงได้เมื่อเว็บอยู่บนเซิร์ฟเวอร์จริง') && str_contains($page, 'ดาวน์โหลดไฟล์ (.pptx)'), 'Uploaded slides on localhost');
     $page = request_page($student, 'lesson.php?id=' . $lesson['id'] . '&media_id=' . $media['id']);
     ensure(str_contains($page, 'docs.google.com/presentation/d/AbC_123-x/embed'), 'Google Slides embedded');
-    echo "Slides HTTP tests passed: embed URLs, pptx upload, Google Slides link, file type check, lesson page\n";
+    // แผนผังความคิด: รูปที่อัปโหลด (คลิกซูม) + ลิงก์ Canva ฝังได้
+    ensure(media_type_ready('mindmap'), 'Run database/migrations/1.15.3.sql first');
+    ensure(mindmap_embed('https://www.canva.com/design/DAF1abc/XyZ-9/view?utm_source=x') === 'https://www.canva.com/design/DAF1abc/XyZ-9/view?embed'
+        && mindmap_embed('https://miro.com/app/board/uXjVN1a2b3=/') === 'https://miro.com/app/live-embed/uXjVN1a2b3=/' && mindmap_embed('javascript:alert(1)') === null, 'Mind map embed URLs');
+    $html = request_page($teacher, $form);
+    ensure(str_contains($html, 'data-media-type="mindmap"') && str_contains($html, 'แผนผังความคิด'), 'Mind map type offered');
+    $png = sys_get_temp_dir() . '/map_' . bin2hex(random_bytes(4)) . '.png';
+    file_put_contents($png, "\x89PNG fixture");
+    request_page($teacher, $form, ['csrf' => field($html, 'csrf'), 'title' => 'Map lesson', 'media_type' => 'mindmap', 'is_published' => '1',
+        'file' => new CURLFile($png, 'image/png', 'map.png'),
+        'extra_types[0]' => 'mindmap', 'extra_titles[0]' => 'Canva map', 'extra_urls[0]' => 'https://www.canva.com/design/DAF1abc/XyZ-9/view'], true);
+    unlink($png);
+    $map = db_one("SELECT * FROM lessons WHERE course_id = ? AND title = 'Map lesson'", [$course]);
+    ensure($map && $map['media_type'] === 'mindmap' && str_ends_with((string)$map['file_path'], '.png'), 'Saved mind map image');
+    $files[] = UPLOAD_PATH . '/' . $map['file_path'];
+    $page = request_page($student, 'lesson.php?id=' . $map['id']);
+    ensure(str_contains($page, 'คลิกที่ภาพเพื่อเปิดเต็มขนาดและซูม') && str_contains($page, 'ดาวน์โหลด (.png)'), 'Mind map image on lesson page');
+    $mapMedia = (int)db_value('SELECT id FROM lesson_media WHERE lesson_id = ?', [$map['id']]);
+    ensure(str_contains(request_page($student, 'lesson.php?id=' . $map['id'] . '&media_id=' . $mapMedia), 'canva.com/design/DAF1abc/XyZ-9/view?embed'), 'Canva mind map embedded');
+    echo "Slides/mind map HTTP tests passed: embed URLs, pptx upload, Google Slides link, mind map image and Canva link, file type check, lesson page\n";
 } finally {
     if ($course) db_exec('DELETE FROM courses WHERE id = ?', [$course]);
     foreach ($users as $id) db_exec('DELETE FROM users WHERE id = ?', [$id]);

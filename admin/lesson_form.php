@@ -31,9 +31,9 @@ if (!$course || ($id && !$lesson) || !can_manage_course($courseId)) {
 }
 
 $types = media_types();
-if (!slides_ready()) unset($types['slides']);
+foreach (['slides', 'mindmap'] as $newType) if (!media_type_ready($newType)) unset($types[$newType]);
 if (($lesson['media_type'] ?? '') !== 'file') unset($types['file']);
-$fileTypes = ['video', 'pdf', 'slides', 'file', 'image', 'audio'];
+$fileTypes = ['video', 'pdf', 'slides', 'file', 'image', 'mindmap', 'audio'];
 $isNewLesson = !$isMedia && !$lesson;
 $linkRows = [];
 $urls = (array)post('extra_urls', []);
@@ -230,25 +230,31 @@ require __DIR__ . '/_top.php';
                     <label class="form-label"><?= $isMedia ? 'ชื่อสื่อ' : 'ชื่อบทเรียน' ?> *</label>
                     <input name="title" class="form-control form-control-lg mb-3" required maxlength="200" value="<?= e($v('title')) ?>" placeholder="<?= $isMedia ? 'เช่น วิดีโอแนะนำ / ใบงาน PDF / เสียงบรรยาย' : 'เช่น บทที่ 1 ความรู้เบื้องต้น' ?>">
 
+                    <?php // แก้ไขบทเรียนเดิม: ไม่แสดงปุ่มเลือกชนิดสื่อหลัก (เพิ่มสื่อด้วยชุด "เพิ่มสื่ออื่นในบทเรียนเดียวกัน") แต่คงชนิดเดิมไว้ในฟอร์ม
+                    $hideKind = !$isMedia && $lesson && lesson_media_ready(); ?>
+                    <?php if ($hideKind): ?>
+                        <div class="small text-muted mb-2">เนื้อหาหลักของบทเรียน: <span class="badge bg-<?= e($types[$curType]['color'] ?? 'secondary') ?>-subtle text-<?= e($types[$curType]['color'] ?? 'secondary') ?>"><i class="bi <?= e($types[$curType]['icon'] ?? 'bi-file-text') ?>"></i> <?= e($types[$curType]['label'] ?? $curType) ?></span></div>
+                    <?php else: ?>
                     <label class="form-label"><?= $isNewLesson && lesson_media_ready() ? 'เพิ่มสื่อในบทเรียนนี้ (เพิ่มได้หลายชนิด)' : 'ชนิดสื่อการสอนหลัก' ?></label>
+                    <?php endif; ?>
                     <?php if ($isNewLesson && lesson_media_ready()): ?>
                         <input type="hidden" name="media_type" value="text">
                         <p class="small text-muted">กดชนิดสื่อเพื่อเพิ่มรายการใหม่ เพิ่มชนิดเดิมซ้ำได้ ข้อมูลแต่ละรายการจะแยกกัน และบันทึกพร้อมบทเรียนครั้งเดียว</p>
                     <?php endif; ?>
-                    <div class="row g-2 mb-3">
+                    <div class="row g-2 mb-3" <?= $hideKind ? 'hidden' : '' ?>>
                         <?php foreach ($types as $k => $t): ?>
-                            <div class="col-6 col-md-3">
+                            <div class="col-6 col-md-4 col-xl-3">
                                 <?php if ($isNewLesson && lesson_media_ready()): ?>
-                                    <button type="button" class="btn btn-outline-<?= $t['color'] ?> w-100 py-2 small add-media-kind" data-media-type="<?= $k ?>"><i class="bi <?= $t['icon'] ?> d-block fs-4"></i><?= e($t['label']) ?></button>
+                                    <button type="button" class="btn btn-sm btn-outline-<?= $t['color'] ?> w-100 d-flex align-items-center gap-2 text-start media-kind-btn add-media-kind" data-media-type="<?= $k ?>"><i class="bi <?= $t['icon'] ?> fs-5"></i><span><?= e($t['label']) ?></span></button>
                                 <?php else: ?>
                                 <input type="radio" class="btn-check" name="media_type" id="mt_<?= $k ?>" value="<?= $k ?>" <?= $curType === $k ? 'checked' : '' ?>>
-                                <label class="btn btn-outline-<?= $t['color'] ?> w-100 py-2 small" for="mt_<?= $k ?>"><i class="bi <?= $t['icon'] ?> d-block fs-4"></i><?= e($t['label']) ?></label>
+                                <label class="btn btn-sm btn-outline-<?= $t['color'] ?> w-100 d-flex align-items-center gap-2 text-start media-kind-btn" for="mt_<?= $k ?>"><i class="bi <?= $t['icon'] ?> fs-5"></i><span><?= e($t['label']) ?></span></label>
                                 <?php endif; ?>
                             </div>
                         <?php endforeach; ?>
                     </div>
 
-                    <?php if (!$isMedia && !$isNewLesson): ?>
+                    <?php if (!$isMedia && !$isNewLesson && $curType !== 'text'): ?>
                         <div class="mb-3">
                             <button type="button" id="remove-primary-media" class="btn btn-sm btn-outline-danger">ลบสื่อหลักรายการนี้</button>
                             <div id="remove-primary-status" class="form-text" role="status">ลบลิงก์หรือไฟล์สื่อหลัก โดยเก็บบทเรียนและคำอธิบายไว้ กดบันทึกเพื่อยืนยัน</div>
@@ -355,6 +361,7 @@ require __DIR__ . '/_top.php';
             slides: {url: true, file: true, label: 'หรือลิงก์ Google Slides / OneDrive / Canva (ไม่บังคับ)', help: 'อัปโหลดไฟล์ .pptx หรือวางลิงก์ที่เปิดดูได้ (แชร์แบบทุกคนที่มีลิงก์)', ext: '<?= implode(', ', allowed_ext('slides')) ?>'},
             file: {url: false, file: true, ext: '<?= implode(', ', allowed_ext('file')) ?>'},
             image: {url: true, file: true, label: 'ลิงก์รูปภาพ (ไม่บังคับ)', ext: '<?= implode(', ', allowed_ext('image')) ?>'},
+            mindmap: {url: true, file: true, label: 'หรือลิงก์ Canva / Miro / MindMeister / Coggle (ไม่บังคับ)', help: 'อัปโหลดรูปหรือ PDF ของแผนผังความคิด หรือวางลิงก์ที่แชร์แบบทุกคนดูได้', ext: '<?= implode(', ', allowed_ext('mindmap')) ?>'},
             audio: {url: true, file: true, label: 'ลิงก์ไฟล์เสียง (ไม่บังคับ)', ext: '<?= implode(', ', allowed_ext('audio')) ?>'}
         };
         function update() {
