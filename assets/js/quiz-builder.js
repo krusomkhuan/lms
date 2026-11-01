@@ -18,6 +18,7 @@
         $('.quiz-pair').value = config.pair || '';
         $('.quiz-max').value = Number.isInteger(config.max_attempts) ? config.max_attempts : 0;
         $('.quiz-shuffle').checked = !!config.shuffle;
+        $('.quiz-lockdown').checked = typeof config.lockdown === 'boolean' ? config.lockdown : ['pre', 'post'].includes(config.kind);
         $('.quiz-opens').value = config.opens_at || '';
         $('.quiz-closes').value = config.closes_at || '';
         const cats = Array.isArray(config.categories) ? config.categories : [];
@@ -40,17 +41,19 @@
             $('.quiz-manual-box').hidden = isBank;
             const out = {questions, shuffle: $('.quiz-shuffle').checked, source: source(), categories: $$('.quiz-cat').filter(box => box.checked).map(box => box.value),
                 count: parseInt($('.quiz-bank-count')?.value, 10) || 0, kind, pair: kind === 'post' ? $('.quiz-pair').value : '', max_attempts: max,
-                opens_at: $('.quiz-opens').value, closes_at: $('.quiz-closes').value};
+                opens_at: $('.quiz-opens').value, closes_at: $('.quiz-closes').value, lockdown: $('.quiz-lockdown').checked};
             if (isBank) {
                 out.questions = [];
                 const checked = $$('.quiz-cat').filter(box => box.checked), pool = (checked.length ? checked : $$('.quiz-cat')).reduce((sum, box) => sum + Number(box.dataset.count), 0);
                 const info = $('.quiz-bank-info');
                 if (info) { info.textContent = 'มีข้อในหมวดที่เลือก ' + pool + ' ข้อ' + (out.count > pool ? ' — น้อยกว่าจำนวนที่ต้องการสุ่ม' : ''); info.classList.toggle('text-danger', out.count > pool); }
             }
-            hidden.value = JSON.stringify(out.source === 'manual' && !out.shuffle && !out.kind && !out.max_attempts && !out.opens_at && !out.closes_at ? questions : out);
+            hidden.value = JSON.stringify(out.source === 'manual' && !out.shuffle && !out.kind && !out.max_attempts && !out.opens_at && !out.closes_at && !out.lockdown ? questions : out);
         }
         // เปลี่ยนแบบทดสอบก่อนเรียนที่บันทึกแล้วเป็นประเภทอื่น = แก้ชุดเดิม ไม่ได้สร้างชุดใหม่
         $('.quiz-kind').addEventListener('change', event => {
+            // เลือกเป็นก่อน/หลังเรียน → เปิดป้องกันการออกจากหน้าสอบให้ (ปิดเองได้)
+            if (['pre', 'post'].includes(event.target.value)) $('.quiz-lockdown').checked = true;
             if (builder.dataset.savedKind !== 'pre' || event.target.value === 'pre') return;
             if (!confirm('แบบทดสอบนี้คือแบบทดสอบก่อนเรียนที่บันทึกไว้แล้ว ถ้าเปลี่ยนประเภทแล้วบันทึก ชุดนี้จะไม่ใช่แบบทดสอบก่อนเรียนอีกต่อไป (ไม่ได้สร้างชุดใหม่เพิ่ม)\n\n'
                 + 'ถ้าต้องการแบบทดสอบหลังเรียนอีกชุด ให้กด "ยกเลิก" แล้วใช้ลิงก์ "เพิ่มเป็นสื่อใหม่"\n\nยืนยันเปลี่ยนประเภทชุดนี้?')) {

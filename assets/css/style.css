@@ -95,3 +95,8 @@ a { text-decoration: none; }
 }
 .password-toggle:hover, .password-toggle:focus-visible { color: var(--vt-primary); }
 .password-toggle:focus-visible { outline: 2px solid var(--vt-accent); outline-offset: 1px; }
+
+/* ป้องกันการออกจากหน้าสอบ (assets/js/quiz-lockdown.js) */
+.quiz-lock-overlay { position: fixed; inset: 0; z-index: 2000; background: rgba(13, 59, 102, .92); display: flex; align-items: center; justify-content: center; padding: 1rem; }
+.quiz-lock-overlay[hidden] { display: none; }
+.quiz-lock-box { background: #fff; border-radius: 1rem; padding: 2rem 1.5rem; max-width: 30rem; width: 100%; text-align: center; box-shadow: 0 1rem 3rem rgba(0,0,0,.3); }

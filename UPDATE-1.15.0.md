@@ -11,7 +11,7 @@
 
 แบบทดสอบเดิมทั้งหมดใช้ได้ตามปกติ (เป็นแบบทดสอบทั่วไป ไม่สลับข้อ ทำได้ไม่จำกัด) รายวิชาเดิมทุกวิชาจะ **บังคับเรียนตามลำดับ** ทันทีหลังรัน 1.15.1.sql ปิดได้ที่หน้าแก้ไขรายวิชา
 
-## ไฟล์ใหม่ — อัปโหลดเพิ่ม (13 ไฟล์)
+## ไฟล์ใหม่ — อัปโหลดเพิ่ม (14 ไฟล์)
 
 - `admin/question_bank.php` — คลังข้อสอบ
 - `admin/quiz_import.php` — รูปแบบการนำเข้าข้อสอบ / แม่แบบ
@@ -24,10 +24,11 @@
 - `my-progress.php` — หน้าความก้าวหน้าของนักเรียน
 - `student_preview.php` — มุมมองสำหรับผู้เรียน
 - `assets/js/password-toggle.js` — ปุ่มรูปตาแสดง/ซ่อนรหัสผ่าน
+- `assets/js/quiz-lockdown.js` — ป้องกันการออกจากหน้าสอบ
 - `database/migrations/1.15.0.sql`
 - `database/migrations/1.15.1.sql`
 
-## ไฟล์เดิมที่แก้ไข — อัปโหลดทับ (25 ไฟล์)
+## ไฟล์เดิมที่แก้ไข — อัปโหลดทับ (26 ไฟล์)
 
 - `admin/_bottom.php`
 - `admin/_lesson_media_list.php`
@@ -37,6 +38,7 @@
 - `admin/courses.php`
 - `admin/lesson_form.php`
 - `admin/lessons.php`
+- `admin/quiz_results.php`
 - `assets/css/style.css`
 - `assets/js/quiz-builder.js`
 - `course.php`

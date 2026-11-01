@@ -28,7 +28,7 @@ if (isset($locks[$id])) {
     redirect('course.php?id=' . $courseId);
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !in_array(post('action'), ['complete', 'undo', 'submit_quiz', 'submit_assignment'], true)) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !in_array(post('action'), ['complete', 'undo', 'submit_quiz', 'quiz_leave', 'submit_assignment'], true)) {
     http_response_code(400);
     exit('ข้อมูลส่งไม่ครบหรือไฟล์ใหญ่เกินที่เซิร์ฟเวอร์กำหนด กรุณาย้อนกลับแล้วลองใหม่');
 }

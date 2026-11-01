@@ -2,6 +2,8 @@
 // ตัวอักษรนำหน้าตัวเลือก (สูงสุด 10 ตัวเลือก)
 const QUIZ_LETTERS = ['ก', 'ข', 'ค', 'ง', 'จ', 'ฉ', 'ช', 'ซ', 'ฌ', 'ญ'];
 const QUIZ_KINDS = ['' => 'แบบทดสอบทั่วไป', 'pre' => 'แบบทดสอบก่อนเรียน', 'post' => 'แบบทดสอบหลังเรียน'];
+// ป้องกันการออกจากหน้าสอบ: เตือนครั้งที่ 1–2 ครั้งที่ 3 ส่งคำตอบอัตโนมัติ
+const QUIZ_LEAVE_LIMIT = 3;
 
 function quiz_ready(): bool
 {
@@ -18,18 +20,20 @@ function question_bank_ready(): bool
 /**
  * quiz_data เป็นรายการข้อ (แบบเดิม) หรือออบเจกต์ตั้งค่า:
  * {"questions":[...],"shuffle":bool,"source":"manual|bank","categories":[...],"count":N,"kind":"|pre|post","pair":"บทเรียน:สื่อ","max_attempts":N,
- *  "opens_at":"YYYY-MM-DDTHH:MM","closes_at":"..."}
+ *  "opens_at":"YYYY-MM-DDTHH:MM","closes_at":"...","lockdown":bool (ป้องกันการออกจากหน้าสอบ)}
  */
 function quiz_parse($raw): array
 {
     $data = is_string($raw) ? json_decode($raw, true) : $raw;
-    $config = ['questions' => $data, 'shuffle' => false, 'source' => 'manual', 'categories' => [], 'count' => 0, 'kind' => '', 'pair' => '', 'max_attempts' => 0, 'opens_at' => '', 'closes_at' => ''];
+    $config = ['questions' => $data, 'shuffle' => false, 'source' => 'manual', 'categories' => [], 'count' => 0, 'kind' => '', 'pair' => '', 'max_attempts' => 0, 'opens_at' => '', 'closes_at' => '', 'lockdown' => null];
     if (is_array($data) && !array_is_list($data)) {
         $config = array_merge($config, ['questions' => []], array_intersect_key($data, $config));
         $config['shuffle'] = !empty($config['shuffle']);
         // แบบทดสอบก่อน–หลังเรียนสอบได้ 1 ครั้งเสมอ (รวมชุดที่บันทึกไว้ก่อนกำหนดนี้)
         if (in_array($config['kind'], ['pre', 'post'], true)) $config['max_attempts'] = 1;
     }
+    // ไม่ได้ตั้งค่าไว้ → ก่อน–หลังเรียนเปิดป้องกันการออกจากหน้าสอบเป็นค่าเริ่มต้น
+    $config['lockdown'] = is_bool($config['lockdown']) ? $config['lockdown'] : in_array($config['kind'], ['pre', 'post'], true);
     return $config;
 }
 
@@ -89,7 +93,7 @@ function quiz_validate($raw, int $courseId = 0): string
         $config['categories'] = [];
         $config['count'] = 0;
     }
-    if ($config['source'] === 'manual' && !$config['shuffle'] && $config['kind'] === '' && !$config['max_attempts'] && !$config['opens_at'] && !$config['closes_at']) {
+    if ($config['source'] === 'manual' && !$config['shuffle'] && $config['kind'] === '' && !$config['max_attempts'] && !$config['opens_at'] && !$config['closes_at'] && !$config['lockdown']) {
         return json_encode($config['questions'], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
     return json_encode($config, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
@@ -147,12 +151,14 @@ function quiz_draw($raw, int $courseId): array
     return $questions;
 }
 
-function quiz_grade(array $questions, $answers): int
+/** $partial = true: ส่งอัตโนมัติ (ออกจากหน้าสอบครบกำหนด) ข้อที่ยังไม่ตอบได้ 0 คะแนน */
+function quiz_grade(array $questions, $answers, bool $partial = false): int
 {
-    if (!is_array($answers) || count($answers) !== count($questions)) throw new RuntimeException('กรุณาตอบให้ครบทุกข้อ');
+    if (!is_array($answers) || (!$partial && count($answers) !== count($questions))) throw new RuntimeException('กรุณาตอบให้ครบทุกข้อ');
     $score = 0;
     foreach ($questions as $i => $q) {
         $answer = $answers[$i] ?? null;
+        if ($partial && ($answer === null || $answer === '')) continue;
         if (!is_scalar($answer) || !ctype_digit((string)$answer) || !isset($q['options'][(int)$answer])) throw new RuntimeException('คำตอบไม่ถูกต้อง กรุณาตอบให้ครบทุกข้อ');
         if ((int)$answer === $q['correct']) $score++;
     }

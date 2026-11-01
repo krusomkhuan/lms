@@ -26,6 +26,8 @@ if (!isset($quizBankCats, $quizPreTests)) {
         <div class="col-md-6"><label class="form-label small w-100">เปิดสอบ (ไม่บังคับ)<input type="datetime-local" class="form-control quiz-opens"></label></div>
         <div class="col-md-6"><label class="form-label small w-100">ปิดสอบ (ไม่บังคับ)<input type="datetime-local" class="form-control quiz-closes"></label></div>
         <div class="col-md-3"><label class="form-label small w-100">ทำได้สูงสุด (ครั้ง)<input type="number" class="form-control quiz-max" min="0" max="100" value="0"></label><div class="form-text quiz-max-note">0 = ไม่จำกัด</div></div>
+        <div class="col-md-9 d-flex align-items-center"><div class="form-check"><label class="form-check-label"><input type="checkbox" class="form-check-input quiz-lockdown">
+            <b>ป้องกันการออกจากหน้าสอบ</b> — เปิดแท็บใหม่/สลับหน้าจอ เตือน <?= QUIZ_LEAVE_LIMIT - 1 ?> ครั้ง ครั้งที่ <?= QUIZ_LEAVE_LIMIT ?> ส่งคำตอบอัตโนมัติ (ก่อน–หลังเรียนเปิดให้เป็นค่าเริ่มต้น)</label></div></div>
     </div>
     <div class="mb-3">
         <div class="form-check form-check-inline"><label class="form-check-label"><input type="radio" class="form-check-input quiz-source" value="manual"> สร้างข้อสอบเอง</label></div>

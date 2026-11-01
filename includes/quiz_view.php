@@ -49,7 +49,10 @@
     <?php elseif ($questions): ?>
     <p><?= count($questions) ?> ข้อ · ข้อละ 1 คะแนน · <?= $maxAttempts ? 'ทำได้ ' . $maxAttempts . ' ครั้ง' . ($me['role'] === 'student' ? ' (เหลือ ' . $attemptsLeft . ' ครั้ง)' : '') : 'ทำซ้ำได้และเก็บคะแนนทุกครั้ง' ?></p>
     <?php if ($quizConfig['kind'] !== '' && $me['role'] === 'student'): ?><div class="alert alert-warning py-2"><i class="bi bi-exclamation-triangle"></i> <?= e(QUIZ_KINDS[$quizConfig['kind']]) ?>สอบได้ <b>1 ครั้ง</b> ตรวจคำตอบให้ครบก่อนกดส่ง</div><?php endif; ?>
-    <form method="post"<?= $quizConfig['kind'] !== '' ? ' onsubmit="return confirm(&quot;ยืนยันส่งคำตอบ? ส่งแล้วสอบซ้ำไม่ได้&quot;)"' : '' ?>>
+    <?php $lockActive = $quizConfig['lockdown'] && $me['role'] === 'student';
+    $quizLeaves = $lockActive ? (int)($_SESSION['quiz_leaves'][$quizKey] ?? 0) : 0; ?>
+    <?php if ($quizConfig['lockdown']): ?><div class="alert alert-danger py-2"><i class="bi bi-shield-lock"></i> <b>ระบบป้องกันการออกจากหน้าสอบ:</b> ห้ามเปิดแท็บใหม่ สลับหน้าจอ หรือออกจากหน้านี้ระหว่างสอบ ระบบเตือน <?= QUIZ_LEAVE_LIMIT - 1 ?> ครั้ง ครั้งที่ <?= QUIZ_LEAVE_LIMIT ?> จะส่งคำตอบอัตโนมัติ<?= $quizLeaves ? ' · <b>ออกจากหน้าสอบไปแล้ว ' . $quizLeaves . ' ครั้ง</b>' : '' ?></div><?php endif; ?>
+    <form method="post"<?= $lockActive ? ' data-lockdown data-limit="' . QUIZ_LEAVE_LIMIT . '" data-leaves="' . $quizLeaves . '"' : ($quizConfig['kind'] !== '' ? ' onsubmit="return confirm(&quot;ยืนยันส่งคำตอบ? ส่งแล้วสอบซ้ำไม่ได้&quot;)"' : '') ?>>
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="submit_quiz">
         <input type="hidden" name="submission_token" value="<?= e($token) ?>">
@@ -63,6 +66,17 @@
         <?php endforeach; ?>
         <?php if ($me['role'] === 'student'): ?><button class="btn btn-vt" type="submit">ส่งคำตอบและบันทึกคะแนน</button><?php endif; ?>
     </form>
+    <?php if ($lockActive): ?>
+        <div id="quizLockOverlay" class="quiz-lock-overlay" role="alertdialog" aria-modal="true" aria-labelledby="quizLockTitle" hidden>
+            <div class="quiz-lock-box">
+                <i class="bi bi-exclamation-octagon-fill text-danger display-4"></i>
+                <h2 class="h4 mt-2 lock-title" id="quizLockTitle"></h2>
+                <p class="lock-text mb-3"></p>
+                <button type="button" class="btn btn-danger lock-close">กลับไปทำข้อสอบต่อ</button>
+            </div>
+        </div>
+        <script src="<?= url('assets/js/quiz-lockdown.js') ?>?v=<?= (int)@filemtime(ROOT_PATH . '/assets/js/quiz-lockdown.js') ?>"></script>
+    <?php endif; ?>
     <?php else: ?><p>ยังไม่มีข้อสอบ</p><?php endif; ?>
     <?php if ($history && $quizConfig['kind'] === ''): ?>
         <h5 class="mt-4">ประวัติคะแนนของฉัน (ล่าสุด 50 ครั้ง)</h5>
