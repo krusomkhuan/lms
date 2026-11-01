@@ -22,7 +22,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         throw new RuntimeException('ไม่สามารถลบผู้ดูแลระบบคนสุดท้ายได้');
                     }
                     delete_upload($u['avatar']);
-                    db_exec('DELETE FROM users WHERE id = ?', [$uid]);   // ข้อมูลที่ผูกกับผู้ใช้ถูกลบตาม (CASCADE)
+                    $workFiles = assignments_ready() ? db_all('SELECT file_path FROM assignment_submissions WHERE user_id = ?', [$uid]) : [];
+                    db_exec('DELETE FROM users WHERE id = ?', [$uid]);
+                    foreach ($workFiles as $file) delete_upload($file['file_path']);   // ข้อมูลที่ผูกกับผู้ใช้ถูกลบตาม (CASCADE)
                 }
                 $note = $note ?: 'ลบบัญชีและข้อมูลส่วนบุคคลแล้ว';
             }

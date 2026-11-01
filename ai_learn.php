@@ -24,7 +24,7 @@ if (!$lesson || !$course) $fail('ไม่พบบทเรียน', 404);
 
 // ใช้ได้เฉพาะเนื้อหาที่ผู้ใช้มีสิทธิ์: ผู้เรียนที่ลงทะเบียน + บทเรียน/วิชาที่เผยแพร่ (ครูของวิชาทดลองใช้ได้)
 $canManage = can_manage_course((int)$course['id']);
-if (!$canManage && (!is_enrolled((int)$course['id'], (int)$me['id']) || !$lesson['is_published'] || $course['status'] !== 'published')) {
+if (!$canManage && (!is_enrolled((int)$course['id'], (int)$me['id']) || !$lesson['is_published'] || !lesson_schedule_open($lesson) || $course['status'] !== 'published')) {
     $fail('คุณไม่มีสิทธิ์ใช้ผู้ช่วย AI ในบทเรียนนี้', 403);
 }
 if (!ai_student_available($course)) {

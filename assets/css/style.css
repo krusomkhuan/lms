@@ -59,6 +59,12 @@ a { text-decoration: none; }
     a { color: inherit; text-decoration: none; }
 }
 
+.lesson-list { max-height: 65vh; overflow-y: auto; }
+.lesson-list .list-group-item { overflow-wrap: anywhere; }
+#selected-media { min-width: 0; }
+#selected-media video, #selected-media audio { display: block; max-width: 100%; }
+#selected-media video { max-height: 75vh; }
+
 /* หลังบ้าน */
 .admin-wrap { display: flex; min-height: 100vh; }
 .admin-sidebar { width: 250px; background: #0b2e50; color: #cfd8e3; flex-shrink: 0; }

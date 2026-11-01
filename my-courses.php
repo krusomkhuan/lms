@@ -4,13 +4,17 @@ require_once __DIR__ . '/includes/bootstrap.php';
 $me = require_login();
 $uid = (int)$me['id'];
 
-$learning = db_all(course_list_sql() . " WHERE c.status = 'published' AND c.id IN " . student_course_ids_sql() . ' ORDER BY c.code', [$uid, $uid]);
+$preview = student_preview();
+$learning = $preview
+    // มุมมองสำหรับผู้เรียน: แสดงวิชาที่ admin/ครูจัดการ เสมือนเป็นวิชาที่เรียนอยู่
+    ? db_all(course_list_sql() . " WHERE c.status = 'published'" . ($me['role'] === 'admin' ? '' : ' AND c.id IN (SELECT course_id FROM course_teachers WHERE teacher_id = ?)') . ' ORDER BY c.code', $me['role'] === 'admin' ? [] : [$uid])
+    : db_all(course_list_sql() . " WHERE c.status = 'published' AND c.id IN " . student_course_ids_sql() . ' ORDER BY c.code', [$uid, $uid]);
 foreach ($learning as &$c) {
     $c['progress'] = course_progress((int)$c['id'], $uid);
 }
 unset($c);
 
-$teaching = in_array($me['role'], ['teacher', 'admin'], true)
+$teaching = !$preview && in_array($me['role'], ['teacher', 'admin'], true)
     ? db_all(course_list_sql() . ' WHERE c.id IN (SELECT course_id FROM course_teachers WHERE teacher_id = ?) ORDER BY c.code', [$uid])
     : [];
 

@@ -10,9 +10,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id = (int)post('id');
     if (post('action') === 'delete' && can_manage_course($id)) {
         $course = db_one('SELECT cover FROM courses WHERE id = ?', [$id]);
-        foreach (db_all('SELECT file_path FROM lessons WHERE course_id = ?', [$id]) as $l) delete_upload($l['file_path']);
-        delete_upload($course['cover'] ?? null);
+        $files = db_all('SELECT file_path FROM lessons WHERE course_id = ?', [$id]);
+        if (lesson_media_ready()) {
+            $files = array_merge($files, db_all('SELECT m.file_path FROM lesson_media m JOIN lessons l ON l.id = m.lesson_id WHERE l.course_id = ?', [$id]));
+        }
+        if (assignments_ready()) $files = array_merge($files, db_all('SELECT s.file_path FROM assignment_submissions s JOIN lessons l ON l.id = s.lesson_id WHERE l.course_id = ?', [$id]));
         db_exec('DELETE FROM courses WHERE id = ?', [$id]);
+        foreach ($files as $file) delete_upload($file['file_path']);
+        delete_upload($course['cover'] ?? null);
         flash('success', 'ลบรายวิชาเรียบร้อย');
     } elseif (post('action') === 'auto_covers') {
         // สร้างภาพปกอัตโนมัติให้รายวิชาที่ยังไม่มีภาพปก (ครู: เฉพาะวิชาที่สอน)
@@ -58,6 +63,7 @@ require __DIR__ . '/_top.php';
             <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="auto_covers">
                 <button class="btn btn-outline-primary"><i class="bi bi-image"></i> สร้างภาพปกให้วิชาที่ยังไม่มี</button></form>
         <?php endif; ?>
+        <a href="<?= url('admin/course_backup.php') ?>" class="btn btn-outline-secondary"><i class="bi bi-box-arrow-in-down"></i> นำเข้ารายวิชา</a>
         <a href="<?= url('admin/course_form.php') ?>" class="btn btn-vt"><i class="bi bi-plus-lg"></i> เพิ่มรายวิชา</a>
     </div>
 </div>
@@ -83,6 +89,7 @@ require __DIR__ . '/_top.php';
                     <td class="text-end text-nowrap">
                         <a href="<?= url('admin/lessons.php?course_id=' . $c['id']) ?>" class="btn btn-sm btn-primary" title="บทเรียน/สื่อ"><i class="bi bi-collection-play"></i></a>
                         <a href="<?= url('admin/course_students.php?course_id=' . $c['id']) ?>" class="btn btn-sm btn-warning" title="ผู้เรียน/ความก้าวหน้า"><i class="bi bi-people"></i></a>
+                        <a href="<?= url('admin/course_backup.php?course_id=' . $c['id']) ?>" class="btn btn-sm btn-outline-secondary" title="สำรอง/คัดลอกรายวิชา"><i class="bi bi-file-earmark-zip"></i></a>
                         <?php if (setting('ai_enabled') === '1' && setting('ai_teacher_enabled', '1') === '1'): ?>
                             <a href="<?= url('admin/ai_teacher.php?course_id=' . $c['id']) ?>" class="btn btn-sm btn-outline-primary" title="ผู้ช่วยสอน AI"><i class="bi bi-stars"></i></a>
                         <?php endif; ?>

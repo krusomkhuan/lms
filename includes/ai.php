@@ -100,7 +100,7 @@ function ai_plain(?string $html): string
 function ai_course_material(array $course, bool $publishedOnly, ?int $focusLessonId = null, int $budget = 60000, array $onlyLessonIds = []): string
 {
     $types = media_types();
-    $sql = 'SELECT * FROM lessons WHERE course_id = ?' . ($publishedOnly ? ' AND is_published = 1' : '') . ' ORDER BY sort_order, id';
+    $sql = 'SELECT * FROM lessons WHERE course_id = ?' . ($publishedOnly ? ' AND is_published = 1' . lesson_schedule_sql() : '') . ' ORDER BY sort_order, id';
     $lessons = db_all($sql, [(int)$course['id']]);
     if ($onlyLessonIds) {
         $lessons = array_values(array_filter($lessons, fn($l) => in_array((int)$l['id'], $onlyLessonIds, true)));

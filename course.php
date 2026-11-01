@@ -26,12 +26,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('course.php?id=' . $id);
 }
 
-$lessons = db_all('SELECT id, title, media_type, is_published FROM lessons WHERE course_id = ?' . ($canManage ? '' : ' AND is_published = 1') . ' ORDER BY sort_order, id', [$id]);
+$lessons = db_all('SELECT * FROM lessons WHERE course_id = ?' . ($canManage ? '' : ' AND is_published = 1') . ' ORDER BY sort_order, id', [$id]);
 $teachers = db_all('SELECT u.fullname, u.email, u.avatar FROM course_teachers ct JOIN users u ON u.id = ct.teacher_id WHERE ct.course_id = ?', [$id]);
 $groups = db_all('SELECT g.name FROM course_groups cg JOIN student_groups g ON g.id = cg.group_id WHERE cg.course_id = ?', [$id]);
 $done = $me ? array_column(db_all('SELECT lesson_id FROM lesson_progress WHERE user_id = ?', [(int)$me['id']]), 'lesson_id') : [];
 $progress = $enrolled ? course_progress($id, (int)$me['id']) : 0;
 $types = media_types();
+require_once ROOT_PATH . '/includes/lesson_lock.php';
+$locks = $canManage || !$enrolled ? [] : lesson_locks($id, (int)$me['id']);
+$startLesson = null;
+foreach ($lessons as $entry) if ($canManage || lesson_schedule_open($entry)) { $startLesson = $entry; break; }
+// เรียนต่อ: บทแรกที่ยังไม่จบและไม่ถูกล็อก
+foreach ($lessons as $entry) if (!$canManage && lesson_schedule_open($entry) && !isset($locks[(int)$entry['id']]) && !in_array($entry['id'], $done)) { $startLesson = $entry; break; }
 
 $pageTitle = $course['title'];
 require __DIR__ . '/includes/header.php';
@@ -60,8 +66,8 @@ require __DIR__ . '/includes/header.php';
 
                 <div class="d-flex flex-wrap gap-2">
                     <?php if ($enrolled || $canManage): ?>
-                        <?php if ($lessons): ?>
-                            <a href="<?= url('lesson.php?id=' . $lessons[0]['id']) ?>" class="btn btn-vt px-4"><i class="bi bi-play-fill"></i> <?= $progress > 0 ? 'เรียนต่อ' : 'เริ่มเรียน' ?></a>
+                        <?php if ($startLesson): ?>
+                            <a href="<?= url('lesson.php?id=' . $startLesson['id']) ?>" class="btn btn-vt px-4"><i class="bi bi-play-fill"></i> <?= $progress > 0 ? 'เรียนต่อ' : 'เริ่มเรียน' ?></a>
                         <?php endif; ?>
                         <?php if ($canManage): ?>
                             <a href="<?= url('admin/lessons.php?course_id=' . $id) ?>" class="btn btn-outline-primary"><i class="bi bi-pencil-square"></i> จัดการบทเรียน</a>
@@ -95,12 +101,13 @@ require __DIR__ . '/includes/header.php';
             <h5 class="mb-3">เนื้อหารายวิชา</h5>
             <div class="list-group shadow-sm rounded-4">
                 <?php foreach ($lessons as $i => $l): $t = $types[$l['media_type']]; ?>
-                    <?php $open = $enrolled || $canManage; ?>
+                    <?php $lock = $locks[(int)$l['id']] ?? null; $open = $canManage || ($enrolled && lesson_schedule_open($l) && !$lock); ?>
                     <a <?= $open ? 'href="' . url('lesson.php?id=' . $l['id']) . '"' : '' ?> class="list-group-item list-group-item-action d-flex align-items-center gap-3 py-3 <?= $open ? '' : 'disabled' ?>">
                         <span class="badge rounded-pill bg-<?= $t['color'] ?>-subtle text-<?= $t['color'] ?> p-2"><i class="bi <?= $t['icon'] ?>"></i></span>
                         <div class="flex-grow-1">
                             <div><?= e($l['title']) ?> <?= $l['is_published'] ? '' : '<span class="badge bg-secondary">ซ่อน</span>' ?></div>
-                            <div class="small text-muted"><?= e($t['label']) ?></div>
+                            <div class="small text-muted"><?= e($t['label']) ?></div><div class="small text-muted"><?= e(lesson_schedule_label($l)) ?></div>
+                            <?php if ($lock): ?><div class="small text-muted"><i class="bi bi-lock"></i> เรียน “<?= e($lock['title']) ?>” ให้จบก่อน</div><?php endif; ?>
                         </div>
                         <?php if (in_array($l['id'], $done)): ?><i class="bi bi-check-circle-fill text-success"></i>
                         <?php elseif (!$open): ?><i class="bi bi-lock text-muted"></i><?php endif; ?>

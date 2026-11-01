@@ -14,7 +14,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (post('action') === 'delete') {
         $u = db_one('SELECT avatar FROM users WHERE id = ?', [$uid]);
         delete_upload($u['avatar'] ?? null);
+        $workFiles = assignments_ready() ? db_all('SELECT file_path FROM assignment_submissions WHERE user_id = ?', [$uid]) : [];
         db_exec('DELETE FROM users WHERE id = ?', [$uid]);
+        foreach ($workFiles as $file) delete_upload($file['file_path']);
         flash('success', 'ลบสมาชิกเรียบร้อย');
     } elseif (in_array(post('action'), ['active', 'banned'], true)) {
         db_exec('UPDATE users SET status = ? WHERE id = ?', [post('action'), $uid]);

@@ -4,7 +4,9 @@ $curPage = basename($_SERVER['SCRIPT_NAME']);
 $isAdmin = $me['role'] === 'admin';
 $menu = [
     ['index.php', 'bi-speedometer2', 'แดชบอร์ด', ['index.php']],
-    ['courses.php', 'bi-journal-bookmark', 'รายวิชา', ['courses.php', 'course_form.php', 'lessons.php', 'lesson_form.php', 'course_students.php']],
+    ['courses.php', 'bi-journal-bookmark', 'รายวิชา', ['courses.php', 'course_form.php', 'lessons.php', 'lesson_form.php', 'course_students.php', 'gradebook.php', 'grade_history.php', 'assignments.php', 'quiz_results.php', 'course_backup.php']],
+    ['score_dashboard.php', 'bi-bar-chart-line', 'แดชบอร์ดคะแนน', ['score_dashboard.php']],
+    ['question_bank.php', 'bi-archive', 'คลังข้อสอบ', ['question_bank.php', 'quiz_import.php', 'prepost.php']],
     ['groups.php', 'bi-people', 'กลุ่มผู้เรียน', ['groups.php', 'group_form.php']],
 ];
 if ($isAdmin) {
@@ -43,6 +45,7 @@ $activeKey = $curPage === 'users.php' && ($_GET['role'] ?? '') === 'teacher' ? '
             <?php endforeach; ?>
             <hr class="border-secondary mx-3">
             <a class="nav-link" href="<?= url('index.php') ?>" target="_blank"><i class="bi bi-house"></i> ไปหน้าบ้าน</a>
+            <a class="nav-link" href="<?= url('student_preview.php') ?>" target="_blank"><i class="bi bi-eye"></i> มุมมองสำหรับผู้เรียน</a>
             <a class="nav-link" href="<?= url('manual.php?role=' . ($isAdmin ? 'admin' : 'teacher')) ?>" target="_blank"><i class="bi bi-book"></i> คู่มือการใช้งาน</a>
             <a class="nav-link" href="<?= url('profile.php') ?>"><i class="bi bi-person"></i> ข้อมูลส่วนตัว</a>
             <a class="nav-link nav-logout" href="<?= url('logout.php') ?>"><i class="bi bi-box-arrow-right"></i> ออกจากระบบ</a>

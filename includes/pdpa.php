@@ -126,6 +126,8 @@ function pdpa_export_user(int $uid): array
         'teaching_courses' => db_all('SELECT c.code, c.title FROM course_teachers ct JOIN courses c ON c.id = ct.course_id WHERE ct.teacher_id = ?', [$uid]),
         'lesson_progress' => db_all('SELECT c.code AS course, l.title AS lesson, p.completed_at FROM lesson_progress p
                                      JOIN lessons l ON l.id = p.lesson_id JOIN courses c ON c.id = l.course_id WHERE p.user_id = ? ORDER BY p.completed_at', [$uid]),
+        'grade_results' => gradebook_ready() ? db_all('SELECT c.code,c.title,r.total,r.grade_label,g.created_at,r.snapshot_json FROM grade_results r JOIN grade_runs g ON g.id=r.run_id JOIN courses c ON c.id=g.course_id WHERE r.user_id=? ORDER BY g.id', [$uid]) : [],
+        'assignment_submissions' => assignments_ready() ? db_all('SELECT assignment_title, max_score, submission_text, original_name, score, feedback, status, submitted_at, graded_at FROM assignment_submissions WHERE user_id = ? ORDER BY id', [$uid]) : [],
         'consent_history' => db_all('SELECT policy_version, action, ip, created_at FROM consent_logs WHERE user_id = ? ORDER BY id', [$uid]),
         'pdpa_requests' => db_all('SELECT type, detail, status, admin_note, created_at, handled_at FROM pdpa_requests WHERE user_id = ? ORDER BY id', [$uid]),
     ];

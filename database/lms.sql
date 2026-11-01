@@ -4,7 +4,7 @@
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
-DROP TABLE IF EXISTS ai_logs, ai_drafts, pdpa_requests, consent_logs, lesson_progress, enrollments, course_groups, group_teachers, group_members,
+DROP TABLE IF EXISTS question_bank, grade_results, grade_runs, grade_manual_scores, grade_items, course_grade_config, assignment_submissions, quiz_attempts, lesson_media, ai_logs, ai_drafts, pdpa_requests, consent_logs, lesson_progress, enrollments, course_groups, group_teachers, group_members,
   student_groups, lessons, course_teachers, courses, categories, users, settings;
 
 SET FOREIGN_KEY_CHECKS = 1;
@@ -67,6 +67,7 @@ CREATE TABLE courses (
   enroll_type ENUM('open','group') NOT NULL DEFAULT 'open',
   status ENUM('published','draft') NOT NULL DEFAULT 'draft',
   ai_student_enabled TINYINT(1) NOT NULL DEFAULT 1,   -- เปิดผู้ช่วย AI ของผู้เรียนในวิชานี้
+  sequential_lessons TINYINT(1) NOT NULL DEFAULT 1,   -- บังคับเรียนบทเรียนตามลำดับ
   created_by INT UNSIGNED NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
@@ -85,15 +86,43 @@ CREATE TABLE course_teachers (
 CREATE TABLE lessons (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   course_id INT UNSIGNED NOT NULL,
+  available_from DATETIME NULL,
+  available_until DATETIME NULL,
   title VARCHAR(200) NOT NULL,
-  media_type ENUM('text','youtube','video','pdf','file','image','link','audio') NOT NULL DEFAULT 'text',
+  media_type ENUM('text','youtube','video','pdf','file','image','link','audio','quiz','assignment') NOT NULL DEFAULT 'text',
   content MEDIUMTEXT NULL,
+  quiz_data MEDIUMTEXT NULL,
+  assignment_points DECIMAL(7,2) NOT NULL DEFAULT 100.00,
+  submission_opens_at DATETIME NULL,
+  submission_due_at DATETIME NULL,
+  accept_late TINYINT(1) NOT NULL DEFAULT 0,
   media_url VARCHAR(500) NULL,
   file_path VARCHAR(255) NULL,
   sort_order INT NOT NULL DEFAULT 0,
   is_published TINYINT(1) NOT NULL DEFAULT 1,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- สื่อเพิ่มเติมหลายรายการต่อบทเรียน
+CREATE TABLE lesson_media (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  lesson_id INT UNSIGNED NOT NULL,
+  title VARCHAR(200) NOT NULL,
+  media_type ENUM('text','youtube','video','pdf','file','image','link','audio','quiz','assignment') NOT NULL DEFAULT 'text',
+  content MEDIUMTEXT NULL,
+  quiz_data MEDIUMTEXT NULL,
+  assignment_points DECIMAL(7,2) NOT NULL DEFAULT 100.00,
+  submission_opens_at DATETIME NULL,
+  submission_due_at DATETIME NULL,
+  accept_late TINYINT(1) NOT NULL DEFAULT 0,
+  media_url VARCHAR(500) NULL,
+  file_path VARCHAR(255) NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  is_published TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX lesson_media_order (lesson_id, sort_order, id),
+  FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- กลุ่มผู้เรียน (เช่น ห้อง ปวช.1/1)
@@ -213,3 +242,122 @@ INSERT INTO settings (name, value) VALUES
 ('ai_student_enabled', '1'),
 ('ai_teacher_daily_limit', '50'),
 ('ai_student_daily_limit', '30');
+
+CREATE TABLE IF NOT EXISTS quiz_attempts (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  lesson_id INT UNSIGNED NOT NULL,
+  media_id INT UNSIGNED NULL,
+  source_media_id INT UNSIGNED NOT NULL DEFAULT 0,
+  user_id INT UNSIGNED NOT NULL,
+  quiz_title VARCHAR(200) NOT NULL,
+  score INT UNSIGNED NOT NULL,
+  total INT UNSIGNED NOT NULL,
+  answers MEDIUMTEXT NOT NULL,
+  quiz_snapshot MEDIUMTEXT NOT NULL,
+  submission_token CHAR(64) NOT NULL UNIQUE,
+  submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (lesson_id, user_id),
+  FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE,
+  FOREIGN KEY (media_id) REFERENCES lesson_media(id) ON DELETE SET NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS assignment_submissions (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  lesson_id INT UNSIGNED NOT NULL,
+  media_id INT UNSIGNED NULL,
+  source_media_id INT UNSIGNED NOT NULL DEFAULT 0,
+  user_id INT UNSIGNED NOT NULL,
+  assignment_title VARCHAR(200) NOT NULL,
+  instructions MEDIUMTEXT NULL,
+  max_score DECIMAL(7,2) NOT NULL,
+  submission_text MEDIUMTEXT NULL,
+  file_path VARCHAR(255) NULL,
+  original_name VARCHAR(255) NULL,
+  score DECIMAL(7,2) NULL,
+  feedback TEXT NULL,
+  status ENUM('submitted','graded','revision') NOT NULL DEFAULT 'submitted',
+  graded_by INT UNSIGNED NULL,
+  graded_at DATETIME NULL,
+  grade_version INT UNSIGNED NOT NULL DEFAULT 0,
+  is_late TINYINT(1) NOT NULL DEFAULT 0,
+  due_at_snapshot DATETIME NULL,
+  submission_token CHAR(64) NOT NULL UNIQUE,
+  submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX assignment_history (lesson_id, source_media_id, user_id, id),
+  FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE,
+  FOREIGN KEY (media_id) REFERENCES lesson_media(id) ON DELETE SET NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (graded_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS course_grade_config (
+ course_id INT UNSIGNED PRIMARY KEY,
+ scale_json TEXT NOT NULL,
+ version INT UNSIGNED NOT NULL DEFAULT 0,
+ FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS grade_items (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ course_id INT UNSIGNED NOT NULL,
+ source_key VARCHAR(100) NOT NULL,
+ kind ENUM('quiz','assignment','manual') NOT NULL,
+ lesson_id INT UNSIGNED NULL,
+ source_media_id INT UNSIGNED NOT NULL DEFAULT 0,
+ title VARCHAR(200) NOT NULL,
+ max_score DECIMAL(9,2) NOT NULL DEFAULT 100.00,
+ weight DECIMAL(5,2) NOT NULL DEFAULT 0,
+ attempt_policy ENUM('highest','latest') NOT NULL DEFAULT 'latest',
+ UNIQUE KEY grade_source (course_id,source_key),
+ FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+ FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS grade_manual_scores (
+ item_id INT UNSIGNED NOT NULL,
+ user_id INT UNSIGNED NOT NULL,
+ score DECIMAL(9,2) NOT NULL,
+ note VARCHAR(1000) NULL,
+ version INT UNSIGNED NOT NULL DEFAULT 0,
+ updated_by INT UNSIGNED NULL,
+ updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(item_id,user_id),
+ FOREIGN KEY (item_id) REFERENCES grade_items(id) ON DELETE CASCADE,
+ FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+ FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS grade_runs (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ course_id INT UNSIGNED NOT NULL,
+ group_name VARCHAR(150) NULL,
+ plan_json MEDIUMTEXT NOT NULL,
+ created_by INT UNSIGNED NULL,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+ FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS grade_results (
+ run_id INT UNSIGNED NOT NULL,
+ user_id INT UNSIGNED NOT NULL,
+ total DECIMAL(5,2) NOT NULL,
+ grade_label VARCHAR(10) NOT NULL,
+ snapshot_json MEDIUMTEXT NOT NULL,
+ PRIMARY KEY(run_id,user_id),
+ FOREIGN KEY (run_id) REFERENCES grade_runs(id) ON DELETE CASCADE,
+ FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- คลังข้อสอบรายวิชา (ใช้สุ่มข้อสอบก่อนเรียน/หลังเรียน)
+CREATE TABLE IF NOT EXISTS question_bank (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  course_id INT UNSIGNED NOT NULL,
+  category VARCHAR(100) NOT NULL,
+  question_text TEXT NOT NULL,
+  options_json TEXT NOT NULL,
+  correct TINYINT UNSIGNED NOT NULL,
+  created_by INT UNSIGNED NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+  INDEX (course_id, category),
+  FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -5,6 +5,9 @@
 !/backups/.htaccess
 /uploads/*
 !/uploads/.htaccess
+!/uploads/submissions/
+/uploads/submissions/*
+!/uploads/submissions/.htaccess
 /database/*.sql
 !/database/lms.sql
 .env

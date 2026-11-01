@@ -54,6 +54,7 @@ require __DIR__ . '/_top.php';
     <a href="<?= url('admin/lessons.php?course_id=' . $courseId) ?>"><i class="bi bi-arrow-left"></i> กลับไปบทเรียน</a>
     <a href="<?= url('admin/course_form.php?id=' . $courseId) ?>" class="btn btn-sm btn-outline-primary"><i class="bi bi-people"></i> กำหนดกลุ่มที่ได้รับสิทธิ์</a>
 </div>
+<a class="btn btn-outline-success mb-3" href="<?= url('admin/gradebook.php?course_id='.$courseId) ?>">สมุดคะแนนรายบุคคล / รายกลุ่ม / ตัดเกรด</a>
 <div class="row g-4">
     <div class="col-xl-8">
         <div class="card border-0 shadow-sm rounded-4">

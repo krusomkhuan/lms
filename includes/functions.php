@@ -198,8 +198,16 @@ function role_badge(string $role): string
     return '<span class="badge bg-' . $c . '">' . e(role_label($role)) . '</span>';
 }
 
-/** ผู้ใช้จัดการรายวิชานี้ได้หรือไม่ (admin ทุกวิชา, ครูเฉพาะวิชาที่สอน) */
-function can_manage_course(int $courseId): bool
+/** โหมด "มุมมองสำหรับผู้เรียน": admin/ครูดูหน้าบ้านแบบผู้เรียน (เฉพาะหน้าบ้าน ไม่มีผลกับหลังบ้าน) */
+function student_preview(): bool
+{
+    $u = current_user();
+    return $u && !empty($_SESSION['student_preview']) && in_array($u['role'], ['admin', 'teacher'], true)
+        && basename(dirname($_SERVER['SCRIPT_NAME'] ?? '')) !== 'admin';
+}
+
+/** สิทธิ์จัดการรายวิชาจริงของ admin/ครู (ไม่สนโหมดมุมมองผู้เรียน) */
+function staff_manages_course(int $courseId): bool
 {
     $u = current_user();
     if (!$u) return false;
@@ -208,9 +216,17 @@ function can_manage_course(int $courseId): bool
     return (bool)db_value('SELECT 1 FROM course_teachers WHERE course_id = ? AND teacher_id = ?', [$courseId, (int)$u['id']]);
 }
 
-/** ผู้เรียนมีสิทธิ์เรียนวิชานี้ (ลงทะเบียนเอง หรืออยู่ในกลุ่มที่ได้รับสิทธิ์) */
+/** ผู้ใช้จัดการรายวิชานี้ได้หรือไม่ (admin ทุกวิชา, ครูเฉพาะวิชาที่สอน; ปิดในโหมดมุมมองผู้เรียน) */
+function can_manage_course(int $courseId): bool
+{
+    return !student_preview() && staff_manages_course($courseId);
+}
+
+/** ผู้เรียนมีสิทธิ์เรียนวิชานี้ (ลงทะเบียนเอง หรืออยู่ในกลุ่มที่ได้รับสิทธิ์; โหมดมุมมองผู้เรียนถือว่าเรียนวิชาที่ตนจัดการ) */
 function is_enrolled(int $courseId, int $userId): bool
 {
+    $u = current_user();
+    if ($u && (int)$u['id'] === $userId && student_preview() && staff_manages_course($courseId)) return true;
     return (bool)db_value(
         'SELECT 1 FROM enrollments WHERE course_id = ? AND user_id = ?
          UNION SELECT 1 FROM course_groups cg JOIN group_members gm ON gm.group_id = cg.group_id
@@ -281,6 +297,8 @@ function media_types(): array
         'youtube' => ['label' => 'วิดีโอ YouTube', 'icon' => 'bi-youtube', 'color' => 'danger'],
         'video'   => ['label' => 'ไฟล์วิดีโอ', 'icon' => 'bi-camera-video', 'color' => 'danger'],
         'pdf'     => ['label' => 'เอกสาร PDF', 'icon' => 'bi-file-earmark-pdf', 'color' => 'warning'],
+        'assignment' => ['label' => 'งานมอบหมาย / ส่งงาน', 'icon' => 'bi-journal-check', 'color' => 'primary'],
+        'quiz'    => ['label' => 'แบบทดสอบปรนัย', 'icon' => 'bi-ui-checks', 'color' => 'info'],
         'file'    => ['label' => 'ไฟล์ดาวน์โหลด', 'icon' => 'bi-download', 'color' => 'info'],
         'image'   => ['label' => 'รูปภาพ / อินโฟกราฟิก', 'icon' => 'bi-image', 'color' => 'success'],
         'audio'   => ['label' => 'ไฟล์เสียง / Podcast', 'icon' => 'bi-music-note-beamed', 'color' => 'primary'],
@@ -313,12 +331,12 @@ function youtube_id(string $url): ?string
  * อัปโหลดไฟล์ คืนค่า path แบบ relative (เช่น lessons/abc.pdf) หรือ null ถ้าไม่มีไฟล์
  * โยน RuntimeException เมื่อไฟล์ไม่ถูกต้อง
  */
-function upload_file(string $field, string $subdir, array $allowed): ?string
+function upload_file(string $field, string $subdir, array $allowed, ?array $upload = null): ?string
 {
-    if (empty($_FILES[$field]) || $_FILES[$field]['error'] === UPLOAD_ERR_NO_FILE) {
+    $f = $upload ?? ($_FILES[$field] ?? null);
+    if (!$f || $f['error'] === UPLOAD_ERR_NO_FILE) {
         return null;
     }
-    $f = $_FILES[$field];
     if ($f['error'] !== UPLOAD_ERR_OK) {
         throw new RuntimeException('อัปโหลดไฟล์ไม่สำเร็จ (รหัส ' . $f['error'] . ') ไฟล์อาจใหญ่เกินที่เซิร์ฟเวอร์กำหนด');
     }

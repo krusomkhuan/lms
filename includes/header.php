@@ -31,11 +31,13 @@ $curPage = basename($_SERVER['SCRIPT_NAME']);
                 <?php if ($me): ?>
                     <li class="nav-item"><a class="nav-link <?= $curPage === 'my-courses.php' ? 'active' : '' ?>" href="<?= url('my-courses.php') ?>">วิชาของฉัน</a></li>
                 <?php endif; ?>
+                <?php if ($me && ($me['role'] === 'student' || student_preview())): ?><li class="nav-item"><a class="nav-link <?= $curPage === 'my-progress.php' ? 'active' : '' ?>" href="<?= url('my-progress.php') ?>">ความก้าวหน้า</a></li><?php endif; ?>
+                <?php if ($me && $me['role'] === 'student'): ?><li class="nav-item"><a class="nav-link <?= $curPage === 'my-grades.php' ? 'active' : '' ?>" href="<?= url('my-grades.php') ?>">ผลการเรียน</a></li><?php endif; ?>
                 <li class="nav-item"><a class="nav-link <?= $curPage === 'manual.php' ? 'active' : '' ?>" href="<?= url('manual.php') ?>"><i class="bi bi-book"></i> คู่มือการใช้งาน</a></li>
             </ul>
             <ul class="navbar-nav">
                 <?php if ($me): ?>
-                    <?php if (in_array($me['role'], ['admin', 'teacher'], true)): ?>
+                    <?php if (in_array($me['role'], ['admin', 'teacher'], true) && !student_preview()): ?>
                         <li class="nav-item"><a class="nav-link" href="<?= url('admin/index.php') ?>"><i class="bi bi-speedometer2"></i> หลังบ้าน</a></li>
                     <?php endif; ?>
                     <li class="nav-item dropdown">
@@ -61,6 +63,15 @@ $curPage = basename($_SERVER['SCRIPT_NAME']);
         </div>
     </div>
 </nav>
+<?php if (student_preview()): ?>
+<div class="alert alert-warning rounded-0 border-0 border-bottom border-warning mb-0 py-2">
+    <div class="container d-flex flex-wrap align-items-center gap-2">
+        <i class="bi bi-eye-fill"></i>
+        <span class="flex-grow-1"><strong>มุมมองสำหรับผู้เรียน</strong> · คุณกำลังดูเว็บไซต์แบบที่ผู้เรียนเห็น ระบบจะไม่บันทึกข้อมูลใด ๆ (ทำแบบทดสอบ ส่งงาน ลงทะเบียน)</span>
+        <a class="btn btn-sm btn-dark" href="<?= url('student_preview.php?mode=off') ?>"><i class="bi bi-box-arrow-left"></i> ออกจากมุมมองผู้เรียน กลับหลังบ้าน</a>
+    </div>
+</div>
+<?php endif; ?>
 <?php if (empty($noContainerFlash)): ?>
 <div class="container mt-3"><?= render_flash() ?></div>
 <?php endif; ?>

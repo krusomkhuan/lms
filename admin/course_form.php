@@ -36,6 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 array_merge($data, [$cover, (int)$me['id']]));
         }
         db_exec('UPDATE courses SET ai_student_enabled = ? WHERE id = ?', [post('ai_student_enabled') ? 1 : 0, $id]);
+        require_once ROOT_PATH . '/includes/lesson_lock.php';
+        if (lesson_lock_ready()) db_exec('UPDATE courses SET sequential_lessons = ? WHERE id = ?', [post('sequential_lessons') ? 1 : 0, $id]);
         // ไม่ได้อัปโหลดภาพเอง + เลือกสร้างอัตโนมัติ → สร้างภาพปกใหม่จากชื่อ/คำอธิบายล่าสุด
         if (!$cover && post('auto_cover')) {
             delete_upload($course['cover'] ?? null);
@@ -121,6 +123,12 @@ require __DIR__ . '/_top.php';
                         <option value="group" <?= $v('enroll_type', 'group') === 'group' ? 'selected' : '' ?>>เฉพาะกลุ่มที่ครูอนุมัติเข้าเรียน</option>
                     </select>
                     <div class="form-text mb-2">กลุ่มที่เลือกด้านล่างเข้าเรียนได้เสมอ ไม่ว่าจะตั้งค่าแบบใด</div>
+                    <?php $seqOn = $_SERVER['REQUEST_METHOD'] === 'POST' ? (bool)post('sequential_lessons') : (int)($course['sequential_lessons'] ?? 1) === 1; ?>
+                    <div class="form-check form-switch mt-3">
+                        <input class="form-check-input" type="checkbox" name="sequential_lessons" value="1" id="seqLessons" <?= $seqOn ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="seqLessons"><i class="bi bi-lock"></i> บังคับเรียนตามลำดับบทเรียน</label>
+                    </div>
+                    <div class="form-text">ผู้เรียนต้องกด “เรียนจบบทนี้” ก่อนจึงเปิดบทถัดไปได้ (บทที่ยังไม่เปิดหรือปิดการเรียนแล้วไม่ขวางบทถัดไป)</div>
                     <?php if (setting('ai_enabled') === '1'): ?>
                         <?php $aiOn = $_SERVER['REQUEST_METHOD'] === 'POST' ? (bool)post('ai_student_enabled') : (int)($course['ai_student_enabled'] ?? 1) === 1; ?>
                         <div class="form-check form-switch mt-3">
