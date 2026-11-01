@@ -27,13 +27,29 @@
     <?php if ($quizError): ?><div class="alert alert-danger"><?= e($quizError) ?></div><?php endif; ?>
     <?php if ($quizConfig['kind'] !== ''): ?><span class="badge bg-info text-dark mb-2"><?= e(QUIZ_KINDS[$quizConfig['kind']] ?? '') ?></span><?php endif; ?>
     <?php if (quiz_schedule_label($quizConfig)): ?><div class="small text-muted mb-2"><i class="bi bi-calendar-event"></i> <?= e(quiz_schedule_label($quizConfig)) ?></div><?php endif; ?>
-    <?php if ($me['role'] === 'student' && $quizState !== 'open'): ?>
+    <?php if ($me['role'] === 'student' && $attemptsLeft === 0 && $quizConfig['kind'] !== '' && $history):
+        // ก่อน–หลังเรียน: สอบครั้งเดียว แสดงคะแนน (ไม่แสดงเฉลย) และหลังเรียนเทียบกับก่อนเรียน
+        $result = $history[0];
+        $percent = $result['total'] ? round($result['score'] * 100 / $result['total'], 1) : 0.0;
+        $preResult = $quizConfig['kind'] === 'post' && $quizConfig['pair'] ? (quiz_scores_by_user($quizConfig['pair'], 'first', (int)$me['id'])[(int)$me['id']] ?? null) : null; ?>
+        <div class="card border-0 shadow-sm rounded-4 mb-3"><div class="card-body text-center py-4">
+            <div class="text-muted mb-1"><i class="bi bi-check-circle-fill text-success"></i> ส่งคำตอบแล้ว · คะแนนของคุณ</div>
+            <div class="display-5 fw-semibold text-vt"><?= (int)$result['score'] ?> <span class="fs-4 text-muted">/ <?= (int)$result['total'] ?></span></div>
+            <div class="fs-5 text-<?= progress_color($percent) ?>"><?= $percent ?>%</div>
+            <?php if ($preResult): $diff = round($percent - $preResult['percent'], 1); ?>
+                <div class="mt-3">ก่อนเรียน <?= (int)$preResult['score'] ?>/<?= (int)$preResult['total'] ?> (<?= $preResult['percent'] ?>%) → หลังเรียน <?= $percent ?>%
+                    <span class="badge bg-<?= $diff > 0 ? 'success' : ($diff < 0 ? 'danger' : 'secondary') ?> ms-1"><?= ($diff > 0 ? '+' : '') . $diff ?>%</span></div>
+            <?php endif; ?>
+            <div class="small text-muted mt-3"><?= e(QUIZ_KINDS[$quizConfig['kind']]) ?>สอบได้ 1 ครั้ง · ส่งเมื่อ <?= e(thai_date($result['submitted_at'], true)) ?></div>
+        </div></div>
+    <?php elseif ($me['role'] === 'student' && $quizState !== 'open'): ?>
         <div class="alert alert-secondary"><?= $quizState === 'upcoming' ? 'แบบทดสอบยังไม่เปิด' : 'แบบทดสอบปิดแล้ว' ?></div>
     <?php elseif ($me['role'] === 'student' && $attemptsLeft === 0): ?>
         <div class="alert alert-secondary">คุณทำแบบทดสอบนี้ครบ <?= $maxAttempts ?> ครั้งแล้ว</div>
     <?php elseif ($questions): ?>
     <p><?= count($questions) ?> ข้อ · ข้อละ 1 คะแนน · <?= $maxAttempts ? 'ทำได้ ' . $maxAttempts . ' ครั้ง' . ($me['role'] === 'student' ? ' (เหลือ ' . $attemptsLeft . ' ครั้ง)' : '') : 'ทำซ้ำได้และเก็บคะแนนทุกครั้ง' ?></p>
-    <form method="post">
+    <?php if ($quizConfig['kind'] !== '' && $me['role'] === 'student'): ?><div class="alert alert-warning py-2"><i class="bi bi-exclamation-triangle"></i> <?= e(QUIZ_KINDS[$quizConfig['kind']]) ?>สอบได้ <b>1 ครั้ง</b> ตรวจคำตอบให้ครบก่อนกดส่ง</div><?php endif; ?>
+    <form method="post"<?= $quizConfig['kind'] !== '' ? ' onsubmit="return confirm(&quot;ยืนยันส่งคำตอบ? ส่งแล้วสอบซ้ำไม่ได้&quot;)"' : '' ?>>
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="submit_quiz">
         <input type="hidden" name="submission_token" value="<?= e($token) ?>">
@@ -48,7 +64,7 @@
         <?php if ($me['role'] === 'student'): ?><button class="btn btn-vt" type="submit">ส่งคำตอบและบันทึกคะแนน</button><?php endif; ?>
     </form>
     <?php else: ?><p>ยังไม่มีข้อสอบ</p><?php endif; ?>
-    <?php if ($history): ?>
+    <?php if ($history && $quizConfig['kind'] === ''): ?>
         <h5 class="mt-4">ประวัติคะแนนของฉัน (ล่าสุด 50 ครั้ง)</h5>
         <ul class="list-group"><?php foreach ($history as $attempt): ?><li class="list-group-item"><?= e(thai_date($attempt['submitted_at'], true)) ?> — <?= (int)$attempt['score'] ?> / <?= (int)$attempt['total'] ?> คะแนน</li><?php endforeach; ?></ul>
     <?php endif; ?>

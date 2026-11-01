@@ -27,7 +27,12 @@
         const pairOptions = $$('.quiz-pair option').filter(option => option.value);
         const source = () => sources.find(radio => radio.checked)?.value || 'manual';
         function save() {
-            const kind = $('.quiz-kind').value, max = Math.max(0, Math.min(100, parseInt($('.quiz-max').value, 10) || 0));
+            const kind = $('.quiz-kind').value, prepost = kind === 'pre' || kind === 'post';
+            // ก่อน–หลังเรียนสอบได้ 1 ครั้งเสมอ
+            if (prepost) $('.quiz-max').value = 1;
+            $('.quiz-max').disabled = prepost;
+            $('.quiz-max-note').textContent = prepost ? 'ก่อน–หลังเรียนสอบได้ 1 ครั้ง' : '0 = ไม่จำกัด';
+            const max = Math.max(0, Math.min(100, parseInt($('.quiz-max').value, 10) || 0));
             if (kind === 'post' && !$('.quiz-pair').value && pairOptions.length === 1) $('.quiz-pair').value = pairOptions[0].value;
             $('.quiz-pair-box').hidden = kind !== 'post';
             const isBank = source() === 'bank';
@@ -44,6 +49,15 @@
             }
             hidden.value = JSON.stringify(out.source === 'manual' && !out.shuffle && !out.kind && !out.max_attempts && !out.opens_at && !out.closes_at ? questions : out);
         }
+        // เปลี่ยนแบบทดสอบก่อนเรียนที่บันทึกแล้วเป็นประเภทอื่น = แก้ชุดเดิม ไม่ได้สร้างชุดใหม่
+        $('.quiz-kind').addEventListener('change', event => {
+            if (builder.dataset.savedKind !== 'pre' || event.target.value === 'pre') return;
+            if (!confirm('แบบทดสอบนี้คือแบบทดสอบก่อนเรียนที่บันทึกไว้แล้ว ถ้าเปลี่ยนประเภทแล้วบันทึก ชุดนี้จะไม่ใช่แบบทดสอบก่อนเรียนอีกต่อไป (ไม่ได้สร้างชุดใหม่เพิ่ม)\n\n'
+                + 'ถ้าต้องการแบบทดสอบหลังเรียนอีกชุด ให้กด "ยกเลิก" แล้วใช้ลิงก์ "เพิ่มเป็นสื่อใหม่"\n\nยืนยันเปลี่ยนประเภทชุดนี้?')) {
+                event.target.value = 'pre';
+                event.stopImmediatePropagation();
+            }
+        });
         builder.addEventListener('change', event => { if (!event.target.closest('.quiz-questions')) save(); });
         builder.addEventListener('input', event => { if (event.target.matches('.quiz-max, .quiz-bank-count')) save(); });
         function render() {

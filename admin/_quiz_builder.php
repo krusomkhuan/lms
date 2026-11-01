@@ -1,6 +1,11 @@
 <?php
 // $quizName and $quizValue are supplied by the lesson form ($courseId ด้วย สำหรับคลังข้อสอบ).
 if (!isset($quizName, $quizValue, $courseId)) { http_response_code(404); exit; }
+// ค่าของแบบทดสอบที่กำลังแก้ไข (เฉพาะสื่อหลัก) — ล้างทิ้งเพื่อไม่ให้ติดไปถึงแถวสื่อเพิ่มเติม
+$quizSelf = $quizSelfKey ?? '';
+$quizKindSaved = $quizSavedKind ?? '';
+$quizAdd = $quizAddUrl ?? '';
+unset($quizSelfKey, $quizSavedKind, $quizAddUrl);
 if (!isset($quizBankCats, $quizPreTests)) {
     $quizBankCats = question_bank_categories((int)$courseId);
     $quizPreTests = [];
@@ -9,17 +14,18 @@ if (!isset($quizBankCats, $quizPreTests)) {
     }
 }
 ?>
-<div class="quiz-builder border rounded p-3 mb-3" data-import-url="<?= e(url('admin/quiz_import.php')) ?>">
+<div class="quiz-builder border rounded p-3 mb-3" data-import-url="<?= e(url('admin/quiz_import.php')) ?>" data-saved-kind="<?= e($quizKindSaved) ?>">
     <input type="hidden" class="quiz-data" name="<?= e($quizName) ?>" value="<?= e($quizValue ?: '[]') ?>">
     <div class="row g-2 mb-3">
         <div class="col-md-4"><label class="form-label small w-100">ประเภท
-            <select class="form-select quiz-kind"><?php foreach (QUIZ_KINDS as $kind => $label): ?><option value="<?= $kind ?>"><?= e($label) ?></option><?php endforeach; ?></select></label></div>
+            <select class="form-select quiz-kind"><?php foreach (QUIZ_KINDS as $kind => $label): ?><option value="<?= $kind ?>"><?= e($label) ?></option><?php endforeach; ?></select></label>
+            <?php if ($quizKindSaved === 'pre' && $quizAdd): ?><div class="form-text">ต้องการแบบทดสอบหลังเรียนด้วย? <a href="<?= e($quizAdd) ?>">เพิ่มเป็นสื่อใหม่</a> (อย่าเปลี่ยนประเภทชุดนี้)</div><?php endif; ?></div>
         <div class="col-md-5 quiz-pair-box"><label class="form-label small w-100">เปรียบเทียบกับแบบทดสอบก่อนเรียน
-            <select class="form-select quiz-pair"><option value="">— เลือก —</option><?php foreach ($quizPreTests as $key => $title): ?><option value="<?= e($key) ?>"><?= e($title) ?></option><?php endforeach; ?></select></label>
-            <?php if (!$quizPreTests): ?><div class="form-text">ยังไม่มีแบบทดสอบก่อนเรียนในวิชานี้ (บันทึกแบบทดสอบก่อนเรียนก่อน แล้วจึงเลือกคู่)</div><?php endif; ?></div>
+            <select class="form-select quiz-pair"><option value="">— เลือก —</option><?php foreach (array_diff_key($quizPreTests, [$quizSelf => 1]) as $key => $title): ?><option value="<?= e($key) ?>"><?= e($title) ?></option><?php endforeach; ?></select></label>
+            <?php if (!array_diff_key($quizPreTests, [$quizSelf => 1])): ?><div class="form-text">ยังไม่มีแบบทดสอบก่อนเรียนในวิชานี้ (บันทึกแบบทดสอบก่อนเรียนก่อน แล้วจึงเลือกคู่)</div><?php endif; ?></div>
         <div class="col-md-6"><label class="form-label small w-100">เปิดสอบ (ไม่บังคับ)<input type="datetime-local" class="form-control quiz-opens"></label></div>
         <div class="col-md-6"><label class="form-label small w-100">ปิดสอบ (ไม่บังคับ)<input type="datetime-local" class="form-control quiz-closes"></label></div>
-        <div class="col-md-3"><label class="form-label small w-100">ทำได้สูงสุด (ครั้ง)<input type="number" class="form-control quiz-max" min="0" max="100" value="0"></label><div class="form-text">0 = ไม่จำกัด</div></div>
+        <div class="col-md-3"><label class="form-label small w-100">ทำได้สูงสุด (ครั้ง)<input type="number" class="form-control quiz-max" min="0" max="100" value="0"></label><div class="form-text quiz-max-note">0 = ไม่จำกัด</div></div>
     </div>
     <div class="mb-3">
         <div class="form-check form-check-inline"><label class="form-check-label"><input type="radio" class="form-check-input quiz-source" value="manual"> สร้างข้อสอบเอง</label></div>

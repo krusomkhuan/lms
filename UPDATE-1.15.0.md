@@ -27,9 +27,10 @@
 - `database/migrations/1.15.0.sql`
 - `database/migrations/1.15.1.sql`
 
-## ไฟล์เดิมที่แก้ไข — อัปโหลดทับ (24 ไฟล์)
+## ไฟล์เดิมที่แก้ไข — อัปโหลดทับ (25 ไฟล์)
 
 - `admin/_bottom.php`
+- `admin/_lesson_media_list.php`
 - `admin/_quiz_builder.php`
 - `admin/_top.php`
 - `admin/course_form.php`

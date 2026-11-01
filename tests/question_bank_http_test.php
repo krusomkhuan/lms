@@ -121,6 +121,14 @@ U3,CSV question,ข,no,yes
     ensure($pre > 0 && quiz_total((string)db_value('SELECT quiz_data FROM lessons WHERE id = ?', [$pre])) === 3, 'Save bank pre-test');
     $html = request_page($teacher, $form);
     ensure(str_contains($html, 'value="' . $pre . ':0">Pre fixture'), 'Pre-test offered as pair');
+    // หน้าแก้ไขบทเรียนก่อนเรียน: กล่องก่อน–หลังเรียน, ไม่เสนอตัวเองเป็นคู่, บันทึกจับคู่ตัวเองไม่ได้, ปุ่มสร้างหลังเรียนตั้งค่าให้
+    $edit = request_page($teacher, 'admin/lesson_form.php?id=' . $pre);
+    foreach (['summary' => 'สุ่ม 3 ข้อจากคลัง (U1) · ทำได้ 1 ครั้ง', 'button' => 'quiz=post'] as $what => $needle) ensure(str_contains($edit, $needle), 'Lesson pre/post box: ' . $what); ensure(!str_contains(explode('id="box-url"', explode('id="box-quiz"', $edit)[1])[0], 'value="' . $pre . ':0">'), 'No self pair');
+    $result = request_page($teacher, 'admin/lesson_form.php?id=' . $pre, ['csrf' => field($edit, 'csrf'), 'title' => 'Pre fixture', 'media_type' => 'quiz', 'quiz_data' => $quiz(['kind' => 'post', 'pair' => $pre . ':0', 'max_attempts' => 1]), 'is_published' => '1']);
+    ensure(str_contains($result, 'จับคู่กับตัวเองไม่ได้') && quiz_parse((string)db_value('SELECT quiz_data FROM lessons WHERE id = ?', [$pre]))['kind'] === 'pre', 'Self pair rejected');
+    $preset = request_page($teacher, 'admin/lesson_form.php?lesson_id=' . $pre . '&quiz=post');
+    $presetConfig = json_decode(field($preset, 'quiz_data'), true);
+    ensure($presetConfig['kind'] === 'post' && $presetConfig['pair'] === $pre . ':0' && $presetConfig['source'] === 'bank' && $presetConfig['max_attempts'] === 1 && $presetConfig['count'] === 3 && $presetConfig['categories'] === ['U1'] && str_contains($preset, 'value="แบบทดสอบหลังเรียน Pre fixture"'), 'Post-test preset');
     request_page($teacher, $form, ['csrf' => field($html, 'csrf'), 'title' => 'Post fixture', 'media_type' => 'quiz', 'quiz_data' => $quiz(['kind' => 'post', 'pair' => $pre . ':0']), 'is_published' => '1']);
     $post = (int)db_value('SELECT id FROM lessons WHERE course_id = ? AND id <> ?', [$course, $pre]);
     ensure($post > 0, 'Save bank post-test');
@@ -136,19 +144,12 @@ U3,CSV question,ข,no,yes
     preg_match_all('/<legend class="fs-6">\d+\. (Bank question \d)/', $retry, $m2);
     ensure(str_contains($retry, 'กรุณาตอบให้ครบทุกข้อ') && $m2[1] === $m[1] && field($retry, 'submission_token') === $token, 'Same draw after failed submit');
     $result = request_page($student, $path, ['csrf' => field($html, 'csrf'), 'action' => 'submit_quiz', 'submission_token' => $token, 'answers' => ['1', '1', '1']]);
-    ensure(str_contains($result, 'บันทึกคะแนนแล้ว: 0 / 3') && str_contains($result, 'ครบ 1 ครั้งแล้ว'), 'Pre-test graded and limited');
+    ensure(str_contains($result, 'บันทึกคะแนนแล้ว: 0 / 3') && str_contains($result, 'ส่งคำตอบแล้ว · คะแนนของคุณ') && str_contains($result, '0 <span class="fs-4 text-muted">/ 3</span>'), 'Pre-test score card');
+    ensure(!str_contains($result, 'name="answers[0]"') && !str_contains($result, 'right 1') && !str_contains($result, 'correct'), 'Score card shows no questions or answer key');
     request_page($student, $path, ['csrf' => field($html, 'csrf'), 'action' => 'submit_quiz', 'submission_token' => $token, 'answers' => ['0', '0', '0']]);
     ensure((int)db_value('SELECT COUNT(*) FROM quiz_attempts WHERE lesson_id = ?', [$pre]) === 1, 'Attempt limit enforced');
     $snapshot = json_decode((string)db_value('SELECT quiz_snapshot FROM quiz_attempts WHERE lesson_id = ?', [$pre]), true);
     ensure(array_column($snapshot, 'text') === $m[1], 'Snapshot stores drawn questions');
-
-    // หลังเรียน: ตอบถูกหมด 2 ครั้ง (ไม่จำกัดครั้ง)
-    $path = 'lesson.php?id=' . $post;
-    for ($i = 0; $i < 2; $i++) {
-        $html = request_page($student, $path);
-        $result = request_page($student, $path, ['csrf' => field($html, 'csrf'), 'action' => 'submit_quiz', 'submission_token' => field($html, 'submission_token'), 'answers' => ['0', '0', '0']]);
-        ensure(str_contains($result, 'บันทึกคะแนนแล้ว: 3 / 3'), 'Post-test graded');
-    }
 
     // เวลาเปิด–ปิดสอบ: ยังไม่เปิด / ปิดแล้ว นักเรียนเห็นแต่ส่งไม่ได้ · ปิดก่อนเปิดต้องถูกปฏิเสธ
     $html = request_page($teacher, $form);
@@ -170,9 +171,20 @@ U3,CSV question,ข,no,yes
     ensure((int)db_value('SELECT COUNT(*) FROM quiz_attempts WHERE lesson_id = ?', [$post]) === $count, 'Closed quiz rejects submit');
     db_exec('UPDATE lessons SET quiz_data = ? WHERE id = ?', [json_encode($config), $post]);
 
+
+    // หลังเรียน: สอบได้ 1 ครั้งแม้บันทึกค่า max_attempts = 0 ไว้ · การ์ดคะแนนเทียบกับก่อนเรียน
+    ensure(quiz_parse((string)db_value('SELECT quiz_data FROM lessons WHERE id = ?', [$post]))['max_attempts'] === 1, 'Pre/post forced to one attempt');
+    $path = 'lesson.php?id=' . $post;
+    $html = request_page($student, $path);
+    ensure(str_contains($html, 'สอบได้ <b>1 ครั้ง</b>') && str_contains($html, 'ส่งแล้วสอบซ้ำไม่ได้'), 'One-attempt warning');
+    $result = request_page($student, $path, ['csrf' => field($html, 'csrf'), 'action' => 'submit_quiz', 'submission_token' => field($html, 'submission_token'), 'answers' => ['0', '0', '0']]);
+    ensure(str_contains($result, 'บันทึกคะแนนแล้ว: 3 / 3') && str_contains($result, 'ก่อนเรียน 0/3 (0%) → หลังเรียน 100%') && str_contains($result, '+100%'), 'Post-test score card with comparison');
+    $html = request_page($student, $path);
+    ensure(!str_contains($html, 'name="submission_token"'), 'No second post-test attempt');
+
     // รายงานครู + สิทธิ์
     $report = request_page($teacher, 'admin/prepost.php?course_id=' . $course);
-    ensure(str_contains($report, 'Pre fixture') && str_contains($report, '+100%') && str_contains($report, '(2 ครั้ง)'), 'Pre/post report');
+    ensure(str_contains($report, 'Pre fixture') && str_contains($report, '+100%'), 'Pre/post report');
     $csv = request_page($teacher, 'admin/prepost.php?course_id=' . $course . '&pair=0&export=csv');
     ensure(str_contains($csv, ',0,3,0,3,3,100,100'), 'Pre/post CSV');
     // ความก้าวหน้าของนักเรียน + แดชบอร์ดครู

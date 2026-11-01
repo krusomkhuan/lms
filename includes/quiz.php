@@ -27,6 +27,8 @@ function quiz_parse($raw): array
     if (is_array($data) && !array_is_list($data)) {
         $config = array_merge($config, ['questions' => []], array_intersect_key($data, $config));
         $config['shuffle'] = !empty($config['shuffle']);
+        // แบบทดสอบก่อน–หลังเรียนสอบได้ 1 ครั้งเสมอ (รวมชุดที่บันทึกไว้ก่อนกำหนดนี้)
+        if (in_array($config['kind'], ['pre', 'post'], true)) $config['max_attempts'] = 1;
     }
     return $config;
 }
@@ -300,4 +302,28 @@ function prepost_stats(array $pre, array $post): array
     $sd = $n > 1 ? sqrt(array_sum(array_map(fn($d) => ($d - $mean) ** 2, $diffs)) / ($n - 1)) : 0.0;
     return ['n' => $n, 'pre' => round($preSum / $n, 2), 'post' => round($postSum / $n, 2), 'diff' => round($mean, 2), 'sd' => round($sd, 2),
         't' => $n > 1 && $sd > 0 ? round($mean / ($sd / sqrt($n)), 3) : null, 'improved' => count(array_filter($diffs, fn($d) => $d > 0))];
+}
+
+/** แบบทดสอบในบทเรียน [key 'บทเรียน:สื่อ' => ['title','kind','config','media_id','published']] (สื่อหลัก = สื่อ 0) */
+function lesson_quizzes(array $lesson): array
+{
+    $quizzes = [];
+    $rows = $lesson['media_type'] === 'quiz' ? [array_merge($lesson, ['mid' => 0])] : [];
+    if (lesson_media_ready()) foreach (db_all("SELECT * FROM lesson_media WHERE lesson_id = ? AND media_type = 'quiz' ORDER BY sort_order, id", [(int)$lesson['id']]) as $m) $rows[] = array_merge($m, ['mid' => (int)$m['id']]);
+    foreach ($rows as $row) {
+        $config = quiz_parse((string)($row['quiz_data'] ?? ''));
+        $quizzes[(int)$lesson['id'] . ':' . $row['mid']] = ['title' => $row['title'], 'kind' => $config['kind'], 'config' => $config, 'media_id' => $row['mid'], 'published' => (bool)$row['is_published']];
+    }
+    return $quizzes;
+}
+
+/** สรุปการตั้งค่าแบบทดสอบเป็นข้อความสั้น เช่น "สุ่ม 10 ข้อจากคลัง (หน่วยที่ 1) · ทำได้ 1 ครั้ง · ปิดสอบ ..." */
+function quiz_summary(array $config): string
+{
+    $parts = [$config['source'] === 'bank'
+        ? 'สุ่ม ' . (int)$config['count'] . ' ข้อจากคลัง' . ($config['categories'] ? ' (' . implode(', ', $config['categories']) . ')' : ' (ทุกหมวด)')
+        : count(is_array($config['questions']) ? $config['questions'] : []) . ' ข้อ' . ($config['shuffle'] ? ' สลับลำดับ' : '')];
+    $parts[] = $config['max_attempts'] ? 'ทำได้ ' . $config['max_attempts'] . ' ครั้ง' : 'ทำได้ไม่จำกัด';
+    if ($label = quiz_schedule_label($config)) $parts[] = $label;
+    return implode(' · ', $parts);
 }

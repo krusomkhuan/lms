@@ -78,6 +78,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($type === 'quiz') {
             if (!quiz_ready()) throw new RuntimeException('กรุณารัน database/migrations/1.12.0.sql ก่อนใช้แบบทดสอบ');
             $quizData = quiz_validate(post('quiz_data'), $courseId);
+            if ($lesson && quiz_parse($quizData)['pair'] === ($isMedia ? $parentId . ':' . $mediaId : $id . ':0')) {
+                throw new RuntimeException('แบบทดสอบหลังเรียนจับคู่กับตัวเองไม่ได้ — เลือกแบบทดสอบก่อนเรียนชุดอื่น หรือเพิ่มแบบทดสอบหลังเรียนเป็นสื่อใหม่');
+            }
         }
         if (post('title') === '') throw new RuntimeException('กรุณากรอกชื่อบทเรียน');
         if (mb_strlen(post('title')) > 200) throw new RuntimeException('ชื่อยาวได้ไม่เกิน 200 ตัวอักษร');
@@ -193,7 +196,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$v = fn($k, $d = '') => $_SERVER['REQUEST_METHOD'] === 'POST' ? post($k, $d) : ($lesson[$k] ?? $d);
+// ปุ่ม "+ แบบทดสอบก่อน/หลังเรียน" ในรายการสื่อ: ตั้งค่าเริ่มต้นให้สื่อใหม่ (สุ่มจากคลังถ้ามีข้อสอบ, ทำได้ 1 ครั้ง, หลังเรียนจับคู่ก่อนเรียนของบทนี้)
+$preset = [];
+$presetKind = $_GET['quiz'] ?? '';
+if ($isMedia && !$lesson && in_array($presetKind, ['pre', 'post'], true) && quiz_ready()) {
+    $hasBank = (bool)question_bank_categories($courseId);
+    $config = ['questions' => [], 'source' => $hasBank ? 'bank' : 'manual', 'categories' => [], 'count' => $hasBank ? min(10, question_bank_count($courseId)) : 0,
+        'kind' => $presetKind, 'pair' => '', 'max_attempts' => 1, 'shuffle' => false, 'opens_at' => '', 'closes_at' => ''];
+    // หลังเรียน: ใช้ข้อสอบชุดเดียวกับก่อนเรียนของบทนี้ (หมวด จำนวนข้อ หรือข้อที่ครูสร้างเอง) เพื่อเทียบผลได้ตรง
+    if ($presetKind === 'post') foreach (lesson_quizzes($parentLesson) as $key => $q) {
+        if ($q['kind'] !== 'pre') continue;
+        $config = array_merge($config, array_intersect_key($q['config'], array_flip(['questions', 'source', 'categories', 'count', 'shuffle'])), ['pair' => $key]);
+        break;
+    }
+    $preset = ['media_type' => 'quiz', 'title' => mb_substr(QUIZ_KINDS[$presetKind] . ' ' . $parentLesson['title'], 0, 200), 'quiz_data' => json_encode($config, JSON_UNESCAPED_UNICODE)];
+}
+$v = fn($k, $d = '') => $_SERVER['REQUEST_METHOD'] === 'POST' ? post($k, $d) : ($lesson[$k] ?? $preset[$k] ?? $d);
 $curType = $v('media_type', 'text');
 $pageTitle = ($isMedia ? ($lesson ? 'แก้ไขสื่อ' : 'เพิ่มสื่อในบทเรียน') : ($lesson ? 'แก้ไขบทเรียน' : 'เพิ่มบทเรียน')) . ' — ' . $course['code'];
 require __DIR__ . '/_top.php';
@@ -241,7 +259,12 @@ require __DIR__ . '/_top.php';
                         <p class="form-text">กรอกคำสั่งงานในช่องเนื้อหา / คำอธิบายด้านล่าง นักเรียนส่งข้อความหรือไฟล์ได้ ครูตรวจ ให้คะแนน และส่งข้อเสนอแนะได้</p>
                     </div>
                     <div id="box-quiz">
-                        <?php $quizName = 'quiz_data'; $quizValue = $v('quiz_data', '[]'); require __DIR__ . '/_quiz_builder.php'; ?>
+                        <?php $quizName = 'quiz_data'; $quizValue = $v('quiz_data', '[]');
+                        // แบบทดสอบที่บันทึกแล้ว: ไม่ให้จับคู่กับตัวเอง และเตือนก่อนเปลี่ยนแบบทดสอบก่อนเรียนเป็นประเภทอื่น
+                        $quizSelfKey = $lesson ? ($isMedia ? $parentId . ':' . $mediaId : $id . ':0') : '';
+                        $quizSavedKind = $lesson ? quiz_parse((string)($lesson['quiz_data'] ?? ''))['kind'] : '';
+                        $quizAddUrl = lesson_media_ready() ? url('admin/lesson_form.php?lesson_id=' . ($isMedia ? $parentId : $id)) : '';
+                        require __DIR__ . '/_quiz_builder.php'; ?>
                     </div>
                     <div id="box-url" class="mb-3">
                         <label class="form-label" id="url-label">ลิงก์</label>
