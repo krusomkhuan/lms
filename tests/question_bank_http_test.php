@@ -235,6 +235,15 @@ U3,CSV question,ข,no,yes
     request_page($student, $path, ['csrf' => field($html, 'csrf'), 'action' => 'quiz_leave']);
     ensure(curl_getinfo($student, CURLINFO_HTTP_CODE) === 403, 'Leave endpoint off when lockdown disabled');
     ensure(quiz_parse(json_encode(['questions' => [], 'kind' => 'pre']))['lockdown'] === true && quiz_parse('[]')['lockdown'] === false, 'Lockdown defaults');
+    // รีเซ็ตคะแนนรายคน → สอบใหม่ได้ · ไม่มีรีเซ็ตทั้งหมด · นักเรียนรีเซ็ตไม่ได้
+    $results = request_page($teacher, 'admin/quiz_results.php?lesson_id=' . $post);
+    ensure(str_contains($results, 'value="reset_user"') && !str_contains($results, 'reset_all'), 'Per-student reset button only');
+    request_page($student, 'admin/quiz_results.php?lesson_id=' . $post, ['csrf' => field($results, 'csrf'), 'action' => 'reset_user', 'source_media_id' => '0', 'user_id' => $users[1]]);
+    ensure((int)db_value('SELECT COUNT(*) FROM quiz_attempts WHERE lesson_id = ?', [$post]) === 1, 'Student cannot reset');
+    $done = request_page($teacher, 'admin/quiz_results.php?lesson_id=' . $post, ['csrf' => field($results, 'csrf'), 'action' => 'reset_user', 'source_media_id' => '0', 'user_id' => $users[1]]);
+    ensure(!db_value('SELECT 1 FROM quiz_attempts WHERE lesson_id = ? AND user_id = ?', [$post, $users[1]]) && str_contains($done, 'นักเรียนทำแบบทดสอบใหม่ได้'), 'Reset one student');
+    ensure((int)db_value('SELECT COUNT(*) FROM quiz_attempts WHERE lesson_id = ?', [$pre]) === 1, 'Other quizzes untouched');
+    ensure(str_contains(request_page($student, 'lesson.php?id=' . $post), 'name="submission_token"'), 'Student can retake after reset');
     echo "Question bank HTTP tests passed: parse/import, bank size check, random draw by category, stable draw, attempt limit, pre/post report, leave-page lockdown and access control\n";
 } finally {
     if ($course) db_exec('DELETE FROM courses WHERE id = ?', [$course]);
