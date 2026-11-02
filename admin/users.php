@@ -18,6 +18,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         db_exec('DELETE FROM users WHERE id = ?', [$uid]);
         foreach ($workFiles as $file) delete_upload($file['file_path']);
         flash('success', 'ลบสมาชิกเรียบร้อย');
+    } elseif (post('action') === 'reset_password') {
+        // รีเซ็ตเป็นรหัสผ่านชั่วคราวแบบสุ่ม แสดงให้ผู้ดูแลเห็นครั้งเดียว (ไม่ใช้ตัวที่สับสน เช่น 0/O 1/l)
+        $u = db_one('SELECT fullname, username FROM users WHERE id = ?', [$uid]);
+        if ($u) {
+            $chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            $temp = '';
+            for ($i = 0; $i < 8; $i++) $temp .= $chars[random_int(0, strlen($chars) - 1)];
+            db_exec('UPDATE users SET password = ? WHERE id = ?', [password_hash($temp, PASSWORD_DEFAULT), $uid]);
+            $_SESSION['reset_password'] = ['fullname' => $u['fullname'], 'username' => $u['username'], 'password' => $temp];
+        }
     } elseif (in_array(post('action'), ['active', 'banned'], true)) {
         db_exec('UPDATE users SET status = ? WHERE id = ?', [post('action'), $uid]);
         flash('success', post('action') === 'active' ? 'เปิดใช้งาน/อนุมัติบัญชีแล้ว' : 'ระงับบัญชีแล้ว');
@@ -44,8 +54,18 @@ $users = db_all('SELECT u.*,
 
 $pageTitle = $role === 'teacher' ? 'ครูผู้สอน' : ($role === 'student' ? 'ผู้เรียน' : 'สมาชิกทั้งหมด');
 require __DIR__ . '/_top.php';
+$resetPassword = $_SESSION['reset_password'] ?? null;
+unset($_SESSION['reset_password']);
 $statusBadge = ['active' => '<span class="badge bg-success">ใช้งาน</span>', 'pending' => '<span class="badge bg-warning text-dark">รออนุมัติ</span>', 'banned' => '<span class="badge bg-dark">ระงับ</span>'];
 ?>
+<?php if ($resetPassword): ?>
+    <div class="alert alert-success d-flex flex-wrap align-items-center gap-3">
+        <div><i class="bi bi-key-fill"></i> รีเซ็ตรหัสผ่านของ <b><?= e($resetPassword['fullname']) ?></b> (ชื่อผู้ใช้ <?= e($resetPassword['username']) ?>) แล้ว · รหัสผ่านใหม่:</div>
+        <code class="fs-5 bg-white border rounded px-2 py-1 user-select-all" id="tempPassword"><?= e($resetPassword['password']) ?></code>
+        <button type="button" class="btn btn-sm btn-outline-success" onclick="navigator.clipboard.writeText(document.getElementById('tempPassword').textContent).then(() => { this.textContent = 'คัดลอกแล้ว'; })"><i class="bi bi-clipboard"></i> คัดลอก</button>
+        <div class="small w-100">แสดงครั้งเดียวเท่านั้น แจ้งรหัสนี้ให้ผู้ใช้โดยตรง และให้เปลี่ยนรหัสผ่านเองที่เมนู "ข้อมูลส่วนตัว" หลังเข้าสู่ระบบ</div>
+    </div>
+<?php endif; ?>
 <div class="d-flex flex-wrap gap-2 justify-content-between mb-3">
     <form class="d-flex flex-wrap gap-2">
         <select name="role" class="form-select w-auto" onchange="this.form.submit()">
@@ -93,6 +113,9 @@ $statusBadge = ['active' => '<span class="badge bg-success">ใช้งาน</
                                     <button name="action" value="banned" class="btn btn-sm btn-outline-dark" title="ระงับ"><i class="bi bi-slash-circle"></i></button>
                                 <?php endif; ?>
                             </form>
+                            <form method="post" class="d-inline" data-confirm="รีเซ็ตรหัสผ่านของ <?= e($u['fullname']) ?>? ระบบจะสร้างรหัสผ่านใหม่และแสดงให้คุณเห็นครั้งเดียว"><?= csrf_field() ?><input type="hidden" name="id" value="<?= $u['id'] ?>">
+                                <input type="hidden" name="back_role" value="<?= e($role) ?>"><input type="hidden" name="back_status" value="<?= e($status) ?>">
+                                <button name="action" value="reset_password" class="btn btn-sm btn-outline-warning" title="รีเซ็ตรหัสผ่าน" aria-label="รีเซ็ตรหัสผ่าน"><i class="bi bi-key"></i></button></form>
                             <form method="post" class="d-inline" data-confirm="ลบสมาชิกนี้ถาวร? (ความก้าวหน้าการเรียนจะถูกลบด้วย)"><?= csrf_field() ?><input type="hidden" name="id" value="<?= $u['id'] ?>">
                                 <input type="hidden" name="back_role" value="<?= e($role) ?>"><input type="hidden" name="back_status" value="<?= e($status) ?>">
                                 <button name="action" value="delete" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form>
