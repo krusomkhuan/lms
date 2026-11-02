@@ -31,11 +31,11 @@ require __DIR__ . '/_top.php';
 <h1 class="h4 my-3"><?= e($pageTitle) ?></h1>
 <p>แสดงคะแนนทุกครั้งที่ส่งคำตอบ ข้อละ 1 คะแนน คะแนนเดิมคงอยู่เมื่อแก้ไขข้อสอบหรือลบสื่อเพิ่มเติม</p>
 <div class="table-responsive"><table class="table table-striped">
-    <thead><tr><th>นักเรียน</th><th>รหัสนักเรียน</th><th>แบบทดสอบ</th><th>คะแนน</th><th>ร้อยละ</th><th>ออกจากหน้าสอบ</th><th>เวลาส่ง</th><th></th></tr></thead>
-    <tbody><?php foreach ($attempts as $a): $saved = json_decode((string)$a['answers'], true); $lock = is_array($saved) && array_key_exists('leaves', $saved) ? $saved : null; ?><tr>
+    <thead><tr><th>นักเรียน</th><th>รหัสนักเรียน</th><th>แบบทดสอบ</th><th>คะแนน</th><th>ร้อยละ</th><th>เวลาส่ง</th><th></th></tr></thead>
+    <tbody><?php foreach ($attempts as $a): ?><tr>
         <td><?= e($a['fullname']) ?></td><td><?= e($a['student_code']) ?></td><td><?= e($a['quiz_title']) ?></td>
         <td><?= (int)$a['score'] ?> / <?= (int)$a['total'] ?></td><td><?= round($a['score'] * 100 / max(1, $a['total']), 2) ?>%</td>
-        <td><?php if (!$lock): ?><span class="text-muted">—</span><?php else: ?><span class="badge <?= $lock['leaves'] ? 'bg-warning text-dark' : 'bg-light text-muted border' ?>"><?= (int)$lock['leaves'] ?> ครั้ง</span><?= !empty($lock['auto']) ? ' <span class="badge bg-danger">ส่งอัตโนมัติ</span>' : '' ?><?php endif; ?></td><td><?= e(thai_date($a['submitted_at'], true)) ?></td>
+        <td><?= e(thai_date($a['submitted_at'], true)) ?></td>
         <td class="text-end"><?php $q = $quizzes[(int)$lesson['id'] . ':' . (int)$a['source_media_id']] ?? null; if ($q): ?>
             <form method="post" class="d-inline" data-confirm="<?= $q['kind'] === 'pre' ? 'นี่คือแบบทดสอบก่อนเรียน (ผลเปรียบเทียบก่อน–หลังเรียนจะเปลี่ยน) ' : '' ?>รีเซ็ตคะแนน <?= e($q['title']) ?> ของ <?= e($a['fullname']) ?> ทุกครั้ง ให้สอบใหม่ได้? ลบแล้วกู้คืนไม่ได้"><?= csrf_field() ?>
                 <input type="hidden" name="action" value="reset_user"><input type="hidden" name="source_media_id" value="<?= (int)$a['source_media_id'] ?>"><input type="hidden" name="user_id" value="<?= (int)$a['user_id'] ?>">

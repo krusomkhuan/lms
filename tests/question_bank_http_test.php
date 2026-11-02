@@ -183,7 +183,7 @@ U3,CSV question,ข,no,yes
     ensure(quiz_parse((string)db_value('SELECT quiz_data FROM lessons WHERE id = ?', [$post]))['max_attempts'] === 1, 'Pre/post forced to one attempt');
     $path = 'lesson.php?id=' . $post;
     $html = request_page($student, $path);
-    ensure(str_contains($html, 'สอบได้ <b>1 ครั้ง</b>') && str_contains($html, 'data-lockdown'), 'One-attempt warning');
+    ensure(str_contains($html, 'สอบได้ <b>1 ครั้ง</b>') && !str_contains($html, 'data-lockdown'), 'One-attempt warning');
     $result = request_page($student, $path, ['csrf' => field($html, 'csrf'), 'action' => 'submit_quiz', 'submission_token' => field($html, 'submission_token'), 'answers' => ['0', '0', '0']]);
     ensure(str_contains($result, 'บันทึกคะแนนแล้ว: 3 / 3') && str_contains($result, 'ก่อนเรียน 0/3 (0%) → หลังเรียน 100%') && str_contains($result, '+100%'), 'Post-test score card with comparison');
     $html = request_page($student, $path);
@@ -206,35 +206,27 @@ U3,CSV question,ข,no,yes
     ensure(curl_getinfo($student, CURLINFO_HTTP_CODE) === 403, 'Student report access');
     $html = request_page($outsider, 'lesson.php?id=' . $pre);
     ensure(!str_contains($html, 'name="submission_token"'), 'Unenrolled quiz access');
-    // ป้องกันการออกจากหน้าสอบ: นับฝั่งเซิร์ฟเวอร์ รีโหลดไม่ล้าง ครั้งที่ 3 ส่งอัตโนมัติได้แม้ตอบไม่ครบ (ข้อว่าง = 0)
+    // ข้อสอบเดิมที่บันทึก lockdown=true ต้องไม่ตรวจจับหรือส่งอัตโนมัติอีกต่อไป
     $html = request_page($teacher, $form);
-    request_page($teacher, $form, ['csrf' => field($html, 'csrf'), 'title' => 'Lock fixture', 'media_type' => 'quiz', 'quiz_data' => $quiz(['lockdown' => true]), 'is_published' => '1']);
+    ensure(!str_contains($html, 'quiz-lockdown'), 'Lockdown setting removed');
+    request_page($teacher, $form, ['csrf' => field($html, 'csrf'), 'title' => 'Lock fixture', 'media_type' => 'quiz', 'quiz_data' => $quiz([]), 'is_published' => '1']);
     $lock = (int)db_value("SELECT id FROM lessons WHERE course_id = ? AND title = 'Lock fixture'", [$course]);
+    db_exec('UPDATE lessons SET quiz_data = ? WHERE id = ?', [$quiz(['lockdown' => true]), $lock]);
     $path = 'lesson.php?id=' . $lock;
     $html = request_page($student, $path);
-    ensure(str_contains($html, 'data-lockdown') && str_contains($html, 'quiz-lockdown.js') && str_contains($html, 'ห้ามเปิดแท็บใหม่'), 'Lockdown active on student page');
-    ensure(!str_contains(request_page($teacher, $path), 'data-lockdown'), 'Lockdown script not active for teacher preview');
-    for ($i = 1; $i <= 2; $i++) {
-        $json = json_decode(request_page($student, $path, ['csrf' => field($html, 'csrf'), 'action' => 'quiz_leave']), true);
-        ensure(($json['leaves'] ?? 0) === $i && $json['limit'] === QUIZ_LEAVE_LIMIT, 'Leave counted ' . $i);
-    }
-    $html = request_page($student, $path);
-    ensure(str_contains($html, 'data-leaves="2"') && str_contains($html, 'ออกจากหน้าสอบไปแล้ว 2 ครั้ง'), 'Leave count survives reload');
-    $result = request_page($student, $path, ['csrf' => field($html, 'csrf'), 'action' => 'submit_quiz', 'submission_token' => field($html, 'submission_token'), 'answers' => ['0']]);
-    ensure(str_contains($result, 'กรุณาตอบให้ครบทุกข้อ'), 'Partial answers rejected before limit');
+    ensure(!str_contains($html, 'data-lockdown') && !str_contains($html, 'quiz-lockdown.js') && !str_contains($html, 'ห้ามเปิดแท็บใหม่') && !str_contains($html, 'quizLockOverlay'), 'Legacy lockdown is ignored');
     request_page($student, $path, ['csrf' => field($html, 'csrf'), 'action' => 'quiz_leave']);
+    ensure(curl_getinfo($student, CURLINFO_HTTP_CODE) === 400, 'Removed leave endpoint rejected');
+    ensure(!db_value('SELECT 1 FROM quiz_attempts WHERE lesson_id = ?', [$lock]), 'Leaving does not submit answers');
     $result = request_page($student, $path, ['csrf' => field($html, 'csrf'), 'action' => 'submit_quiz', 'submission_token' => field($html, 'submission_token'), 'answers' => ['0']]);
-    ensure(str_contains($result, 'ระบบส่งคำตอบอัตโนมัติ') && str_contains($result, 'บันทึกคะแนนแล้ว: 1 / 3'), 'Auto submit with blanks scored 0');
+    ensure(str_contains($result, 'กรุณาตอบให้ครบทุกข้อ'), 'Incomplete answers still rejected');
+    ensure(!db_value('SELECT 1 FROM quiz_attempts WHERE lesson_id = ?', [$lock]), 'Incomplete answers not saved');
+    $result = request_page($student, $path, ['csrf' => field($html, 'csrf'), 'action' => 'submit_quiz', 'submission_token' => field($html, 'submission_token'), 'answers' => ['0', '0', '0']]);
+    ensure(str_contains($result, 'บันทึกคะแนนแล้ว: 3 / 3'), 'Manual submission still works');
     $saved = json_decode((string)db_value('SELECT answers FROM quiz_attempts WHERE lesson_id = ?', [$lock]), true);
-    ensure($saved['leaves'] === 3 && $saved['auto'] === true, 'Leaves and auto flag stored');
+    ensure($saved === ['0', '0', '0'], 'Only answers stored');
     $report = request_page($teacher, 'admin/quiz_results.php?lesson_id=' . $lock);
-    ensure(str_contains($report, '3 ครั้ง') && str_contains($report, 'ส่งอัตโนมัติ'), 'Teacher sees leaves');
-    $html = request_page($student, $path);
-    ensure(!str_contains($html, 'ออกจากหน้าสอบไปแล้ว'), 'Leave count cleared after submit');
-    db_exec('UPDATE lessons SET quiz_data = ? WHERE id = ?', [quiz_validate($quiz(['lockdown' => false])), $lock]);
-    request_page($student, $path, ['csrf' => field($html, 'csrf'), 'action' => 'quiz_leave']);
-    ensure(curl_getinfo($student, CURLINFO_HTTP_CODE) === 403, 'Leave endpoint off when lockdown disabled');
-    ensure(quiz_parse(json_encode(['questions' => [], 'kind' => 'pre']))['lockdown'] === true && quiz_parse('[]')['lockdown'] === false, 'Lockdown defaults');
+    ensure(!str_contains($report, 'ออกจากหน้าสอบ') && !str_contains($report, 'ส่งอัตโนมัติ'), 'Leave report removed');
     // รีเซ็ตคะแนนรายคน → สอบใหม่ได้ · ไม่มีรีเซ็ตทั้งหมด · นักเรียนรีเซ็ตไม่ได้
     $results = request_page($teacher, 'admin/quiz_results.php?lesson_id=' . $post);
     ensure(str_contains($results, 'value="reset_user"') && !str_contains($results, 'reset_all'), 'Per-student reset button only');
@@ -244,7 +236,18 @@ U3,CSV question,ข,no,yes
     ensure(!db_value('SELECT 1 FROM quiz_attempts WHERE lesson_id = ? AND user_id = ?', [$post, $users[1]]) && str_contains($done, 'นักเรียนทำแบบทดสอบใหม่ได้'), 'Reset one student');
     ensure((int)db_value('SELECT COUNT(*) FROM quiz_attempts WHERE lesson_id = ?', [$pre]) === 1, 'Other quizzes untouched');
     ensure(str_contains(request_page($student, 'lesson.php?id=' . $post), 'name="submission_token"'), 'Student can retake after reset');
-    echo "Question bank HTTP tests passed: parse/import, bank size check, random draw by category, stable draw, attempt limit, pre/post report, leave-page lockdown and access control\n";
+    // แดชบอร์ดคะแนน: คลิกช่องคะแนนแบบทดสอบเพื่อรีเซ็ตรายคน
+    $dash = request_page($teacher, 'admin/score_dashboard.php?course_id=' . $course);
+    ensure(str_contains($dash, 'value="reset_quiz"') && str_contains($dash, 'class="cell-reset"'), 'Dashboard reset cells');
+    request_page($student, 'admin/score_dashboard.php?course_id=' . $course, ['csrf' => field($dash, 'csrf'), 'action' => 'reset_quiz', 'lesson_id' => $pre, 'source_media_id' => '0', 'user_id' => $users[1]]);
+    ensure((int)db_value('SELECT COUNT(*) FROM quiz_attempts WHERE lesson_id = ?', [$pre]) === 1, 'Student cannot reset from dashboard');
+    $done = request_page($teacher, 'admin/score_dashboard.php?course_id=' . $course, ['csrf' => field($dash, 'csrf'), 'action' => 'reset_quiz', 'lesson_id' => $pre, 'source_media_id' => '0', 'user_id' => $users[1]]);
+    ensure(!db_value('SELECT 1 FROM quiz_attempts WHERE lesson_id = ?', [$pre]) && str_contains($done, 'นักเรียนทำแบบทดสอบใหม่ได้') && str_contains(curl_getinfo($teacher, CURLINFO_EFFECTIVE_URL), 'score_dashboard.php?course_id=' . $course), 'Reset from dashboard');
+    $retake = request_page($student, 'lesson.php?id=' . $pre);
+    ensure(str_contains($retake, 'name="submission_token"') && !str_contains($retake, 'ส่งคำตอบแล้ว · คะแนนของคุณ'), 'Student can retake after dashboard reset');
+    $result = request_page($student, 'lesson.php?id=' . $pre, ['csrf' => field($retake, 'csrf'), 'action' => 'submit_quiz', 'submission_token' => field($retake, 'submission_token'), 'answers' => ['0', '0', '0']]);
+    ensure(str_contains($result, 'บันทึกคะแนนแล้ว: 3 / 3') && (int)db_value('SELECT COUNT(*) FROM quiz_attempts WHERE lesson_id = ?', [$pre]) === 1, 'Retake after reset is saved');
+    echo "Question bank HTTP tests passed: parse/import, bank size check, random draw by category, stable draw, attempt limit, pre/post report, legacy lockdown removal and access control\n";
 } finally {
     if ($course) db_exec('DELETE FROM courses WHERE id = ?', [$course]);
     foreach ($users as $id) db_exec('DELETE FROM users WHERE id = ?', [$id]);

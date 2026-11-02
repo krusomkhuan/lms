@@ -30,6 +30,18 @@ if (!$course || !can_manage_course($courseId)) {
     exit('ไม่มีสิทธิ์ดูรายวิชานี้');
 }
 
+// รีเซ็ตคะแนนแบบทดสอบรายคนจากตารางคะแนน (คลิกช่องคะแนน) ให้นักเรียนสอบใหม่ได้
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'reset_quiz') {
+    verify_csrf();
+    $key = 'quiz:' . (int)post('lesson_id') . ':' . (int)post('source_media_id');
+    $source = grade_sources($courseId)[$key] ?? null;
+    if ($source) {
+        $name = (string)db_value('SELECT fullname FROM users WHERE id = ?', [(int)post('user_id')]);
+        $n = db_exec('DELETE FROM quiz_attempts WHERE lesson_id = ? AND source_media_id = ? AND user_id = ?', [(int)post('lesson_id'), (int)post('source_media_id'), (int)post('user_id')]);
+        flash('success', 'รีเซ็ตคะแนน "' . $source['title'] . '" ของ ' . $name . ' แล้ว (ลบ ' . $n . ' ครั้ง) นักเรียนทำแบบทดสอบใหม่ได้');
+    }
+    redirect('admin/score_dashboard.php?' . http_build_query(['course_id' => $courseId, 'group_id' => get_int('group_id'), 'sort' => $_GET['sort'] ?? '']));
+}
 $groups = grade_groups($courseId);
 $groupId = get_int('group_id');
 $sort = ($_GET['sort'] ?? '') === 'avg' ? 'avg' : 'code';
@@ -101,6 +113,10 @@ require __DIR__ . '/_top.php';
 .kpi .value { font-size: 1.6rem; font-weight: 600; line-height: 1.1; }
 .chart-box { position: relative; height: 280px; }
 .heat td.cell { text-align: center; min-width: 3.4rem; font-variant-numeric: tabular-nums; }
+.heat .cell-reset { all: unset; cursor: pointer; display: block; width: 100%; }
+.heat .cell-reset .bi { font-size: .7rem; margin-left: .2rem; opacity: 0; }
+.heat .cell-reset:hover .bi, .heat .cell-reset:focus-visible .bi { opacity: 1; }
+.heat .cell-reset:focus-visible { outline: 2px solid #eb6834; outline-offset: 2px; }
 .heat th.item { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; max-height: 11rem; overflow: hidden; text-overflow: ellipsis; font-weight: 500; font-size: .8rem; vertical-align: bottom; }
 .heat-legend span { display: inline-block; width: 2rem; height: .8rem; }
 </style>
@@ -159,7 +175,8 @@ require __DIR__ . '/_top.php';
 
 <div class="card border-0 shadow-sm rounded-4"><div class="card-body">
     <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-2">
-        <h2 class="h6 mb-0">ตารางคะแนนรายคน (คะแนนดีที่สุด %)</h2>
+        <div><h2 class="h6 mb-0">ตารางคะแนนรายคน (คะแนนดีที่สุด %)</h2>
+            <div class="small text-muted"><i class="bi bi-arrow-counterclockwise"></i> คลิกช่องคะแนนแบบทดสอบเพื่อรีเซ็ตให้นักเรียนคนนั้นสอบใหม่</div></div>
         <div class="heat-legend small text-muted">0% <?php foreach ([0, 25, 50, 75, 100] as $v): ?><span style="<?= $cellStyle((float)$v) ?>"></span><?php endforeach; ?> 100% · <span style="background:#f1f1ef"></span> ยังไม่ทำ/ไม่ส่ง</div>
     </div>
     <div class="table-responsive"><table class="table table-sm table-bordered heat mb-0 align-middle">
@@ -174,7 +191,13 @@ require __DIR__ . '/_top.php';
                 <td class="text-center fw-semibold"><?= $s['avg'] === null ? '—' : $s['avg'] . '%' ?></td>
                 <?php foreach ($items as $key => $item): $r = $s['results'][$key] ?? null; $v = $r['best'] ?? null; ?>
                     <td class="cell" style="<?= $r ? $cellStyle($v) : 'background:#f1f1ef;color:#8a8984' ?>" title="<?= e($item['title'] . ($r ? ' · ' . ($item['kind'] === 'quiz' ? 'ทำ ' . $r['attempts'] . ' ครั้ง' : ['graded' => 'ตรวจแล้ว', 'submitted' => 'รอตรวจ', 'revision' => 'ให้แก้ไข'][$r['status']] ?? '') : ' · ยังไม่ทำ')) ?>">
-                        <?= $r ? ($v === null ? '<i class="bi bi-hourglass-split" aria-label="รอตรวจ"></i>' : rtrim(rtrim(number_format($v, 1), '0'), '.')) : '–' ?></td>
+                        <?php $shown = $r ? ($v === null ? '<i class="bi bi-hourglass-split" aria-label="รอตรวจ"></i>' : rtrim(rtrim(number_format($v, 1), '0'), '.')) : '–'; ?>
+                        <?php if ($r && $item['kind'] === 'quiz'): ?>
+                            <form method="post" class="m-0" data-confirm="<?= $item['quiz_kind'] === 'pre' ? 'นี่คือแบบทดสอบก่อนเรียน (ผลเปรียบเทียบก่อน–หลังเรียนจะเปลี่ยน) ' : '' ?>รีเซ็ตคะแนน <?= e($item['title']) ?> ของ <?= e($s['fullname']) ?> ให้สอบใหม่ได้? ลบแล้วกู้คืนไม่ได้"><?= csrf_field() ?>
+                                <input type="hidden" name="action" value="reset_quiz"><input type="hidden" name="lesson_id" value="<?= (int)$item['lesson_id'] ?>"><input type="hidden" name="source_media_id" value="<?= (int)$item['media_id'] ?>"><input type="hidden" name="user_id" value="<?= (int)$s['id'] ?>">
+                                <button class="cell-reset" title="คลิกเพื่อรีเซ็ตคะแนนให้สอบใหม่"><?= $shown ?><i class="bi bi-arrow-counterclockwise"></i></button>
+                            </form>
+                        <?php else: ?><?= $shown ?><?php endif; ?></td>
                 <?php endforeach; ?>
             </tr>
         <?php endforeach; ?>
