@@ -56,6 +56,7 @@ require __DIR__ . '/_top.php';
 </div>
 <a class="btn btn-outline-success mb-3" href="<?= url('admin/gradebook.php?course_id='.$courseId) ?>">สมุดคะแนนรายบุคคล / รายกลุ่ม / ตัดเกรด</a>
 <div class="row g-4">
+    <div class="col-12"><a class="btn btn-outline-primary" href="<?= url('admin/attendance.php?course_id=' . $courseId) ?>"><i class="bi bi-calendar-check"></i> เช็คชื่อเข้าเรียน / ตั้งค่าภาคเรียนและวันหยุด</a></div>
     <div class="col-xl-8">
         <div class="card border-0 shadow-sm rounded-4">
             <div class="card-header bg-white"><b>ผู้เรียนทั้งหมด <?= count($students) ?> คน</b> <span class="small text-muted">· บทเรียนที่เผยแพร่ <?= $total ?> บท</span></div>

@@ -6,6 +6,8 @@ $menu = [
     ['index.php', 'bi-speedometer2', 'แดชบอร์ด', ['index.php']],
     ['courses.php', 'bi-journal-bookmark', 'รายวิชา', ['courses.php', 'course_form.php', 'lessons.php', 'lesson_form.php', 'course_students.php', 'gradebook.php', 'grade_history.php', 'assignments.php', 'quiz_results.php', 'course_backup.php']],
     ['score_dashboard.php', 'bi-bar-chart-line', 'แดชบอร์ดคะแนน', ['score_dashboard.php']],
+    ['attendance.php', 'bi-calendar-check', 'เช็คชื่อเข้าเรียน', ['attendance.php']],
+    ['attendance_dashboard.php', 'bi-bar-chart-steps', 'สรุปการเข้าเรียน', ['attendance_dashboard.php']],
     ['question_bank.php', 'bi-archive', 'คลังข้อสอบ', ['question_bank.php', 'quiz_import.php', 'prepost.php']],
     ['groups.php', 'bi-people', 'กลุ่มผู้เรียน', ['groups.php', 'group_form.php']],
 ];
@@ -17,6 +19,7 @@ if ($isAdmin) {
     $menu[] = ['ai_settings.php', 'bi-stars', 'ตั้งค่า AI', ['ai_settings.php']];
     $menu[] = ['backup.php', 'bi-database-down', 'สำรอง/กู้คืนข้อมูล', ['backup.php']];
     $menu[] = ['settings.php', 'bi-gear', 'ตั้งค่าระบบ', ['settings.php']];
+    $menu[] = ['related_sites.php', 'bi-link-45deg', 'เว็บไซต์ที่เกี่ยวข้อง', ['related_sites.php']];
 }
 $activeKey = $curPage === 'users.php' && ($_GET['role'] ?? '') === 'teacher' ? 'users.php#teacher' : $curPage;
 ?>

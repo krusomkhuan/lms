@@ -8,6 +8,8 @@ require_once __DIR__ . '/quiz.php';
 require_once __DIR__ . '/assignments.php';
 require_once __DIR__ . '/schedule.php';
 require_once __DIR__ . '/gradebook.php';
+require_once __DIR__ . '/attendance.php';
+require_once __DIR__ . '/related_sites.php';
 require_once __DIR__ . '/progress.php';
 
 if (session_status() === PHP_SESSION_NONE) {

@@ -61,12 +61,7 @@ require __DIR__ . '/includes/header.php';
 
     <h4 class="mt-5 mb-3">เว็บไซต์ที่เกี่ยวข้อง</h4>
     <div class="row g-4">
-        <?php foreach ([
-            ['https://krusomkhuan.com/docshub/', 'docshub.svg', 'Docs Hub', 'ศูนย์รวมงานจัดเก็บเอกสาร'],
-            ['https://krusomkhuan.com/prompthub', 'prompthub.svg', 'Prompt Hub', 'เปลี่ยนไอเดียให้เป็นจริงด้วย AI'],
-            ['https://krusomkhuan.com/teachhub', 'teachhub.svg', 'Teach Hub', 'ระบบงานพัฒนาหลักสูตรและการจัดการเรียนรู้'],
-            ['https://krusomkhuan.com/docshub/photo-albums.php', 'imagehub.svg', 'Image Hub', 'คลังรูปภาพและสื่อกราฟิก'],
-        ] as $h): ?>
+        <?php foreach (related_sites() as $h): ?>
             <div class="col-sm-6 col-lg-4 col-xl-3">
                 <a href="<?= e($h[0]) ?>" target="_blank" rel="noopener" class="card course-card shadow-sm text-reset">
                     <img src="<?= url('assets/img/hubs/' . $h[1]) ?>" class="cover" alt="<?= e($h[2]) ?>">

@@ -76,6 +76,9 @@ require __DIR__ . '/includes/header.php';
 
                 <div class="d-flex flex-wrap gap-2">
                     <?php if ($enrolled || $canManage): ?>
+                        <?php if ($canManage || $me['role'] === 'student'): ?>
+                            <a href="<?= url(($canManage ? 'admin/' : '') . 'attendance.php?course_id=' . $id) ?>" class="btn btn-outline-success"><i class="bi bi-calendar-check"></i> เช็คชื่อเข้าเรียน</a>
+                        <?php endif; ?>
                         <?php if ($startLesson): ?>
                             <a href="<?= url('lesson.php?id=' . $startLesson['id']) ?>" class="btn btn-vt px-4"><i class="bi bi-play-fill"></i> <?= $progress > 0 ? 'เรียนต่อ' : 'เริ่มเรียน' ?></a>
                         <?php endif; ?>
