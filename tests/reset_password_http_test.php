@@ -36,6 +36,8 @@ try {
         $users[$role] = db_exec('INSERT INTO users (username,password,fullname,role,consent_version,consent_at) VALUES (?,?,?,?,?,NOW())', [$names[$role], password_hash($old, PASSWORD_DEFAULT), 'Reset fixture ' . $role, $role, setting('privacy_version', '1')]);
     }
     [$admin] = login($names['admin'], $old); $clients[] = $admin;
+    $dash = request_page($admin, 'admin/index.php');
+    ensure(curl_getinfo($admin, CURLINFO_HTTP_CODE) === 200 && !str_contains($dash, 'อัปโหลดไฟล์ไม่ได้'), 'Dashboard loads without upload warning when folders are writable');
     $list = request_page($admin, 'admin/users.php?q=Reset+fixture');
     ensure(str_contains($list, 'value="reset_password"') && substr_count($list, 'value="reset_password"') === 1, 'Reset button shown (not for own account)');
     $page = request_page($admin, 'admin/users.php', ['csrf' => field($list, 'csrf'), 'action' => 'reset_password', 'id' => $users['student'], 'back_role' => 'student']);

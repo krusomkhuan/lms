@@ -384,14 +384,53 @@ function upload_file(string $field, string $subdir, array $allowed, ?array $uplo
         throw new RuntimeException('ไม่อนุญาตไฟล์ชนิด .' . $ext . ' (อนุญาต: ' . implode(', ', $allowed) . ')');
     }
     $dir = UPLOAD_PATH . '/' . $subdir;
-    if (!is_dir($dir)) {
-        mkdir($dir, 0775, true);
+    // บอกสาเหตุให้ชัด: ส่วนใหญ่เกิดจากสิทธิ์โฟลเดอร์บนเซิร์ฟเวอร์ (เว็บเซิร์ฟเวอร์เขียนไฟล์ไม่ได้)
+    $hint = ' กรุณาแจ้งผู้ดูแลระบบให้ตั้งสิทธิ์โฟลเดอร์ uploads/' . $subdir . ' ให้เว็บเซิร์ฟเวอร์เขียนได้ (เช่น 755 หรือ 775)';
+    if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+        throw new RuntimeException('สร้างโฟลเดอร์ uploads/' . $subdir . ' ไม่ได้' . $hint);
+    }
+    if (!is_writable($dir)) {
+        throw new RuntimeException('ไม่สามารถบันทึกไฟล์ได้: โฟลเดอร์ uploads/' . $subdir . ' ไม่มีสิทธิ์เขียน' . $hint);
     }
     $name = date('Ymd_His') . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
-    if (!move_uploaded_file($f['tmp_name'], $dir . '/' . $name)) {
-        throw new RuntimeException('ไม่สามารถบันทึกไฟล์ได้');
+    $target = $dir . '/' . $name;
+    error_clear_last();
+    $moved = @move_uploaded_file($f['tmp_name'], $target);
+    if (!$moved && upload_tmp_file_ok((string)$f['tmp_name'])) {
+        // บางโฮสติ้ง (เช่น Plesk + PHP-FPM) move_uploaded_file ล้มเหลวเงียบ ๆ → คัดลอกจากโฟลเดอร์ไฟล์ชั่วคราวของ PHP แทน
+        $moved = @copy($f['tmp_name'], $target);
+        if ($moved) @unlink($f['tmp_name']);
+    }
+    if (!$moved) {
+        // แนบเหตุผลจาก PHP (เช่น พื้นที่เต็ม, open_basedir) โดยตัด path เต็มของเซิร์ฟเวอร์ออก
+        $reason = (string)(error_get_last()['message'] ?? '');
+        if ($reason === '') {
+            // PHP ไม่บอกเหตุผล: แนบข้อมูลวินิจฉัยสั้น ๆ ให้ผู้ดูแลระบบ
+            $free = @disk_free_space($dir);
+            $reason = 'ตรวจ: is_uploaded_file=' . (@is_uploaded_file($f['tmp_name']) ? 'yes' : 'no')
+                . ', tmp_exists=' . (@is_file($f['tmp_name']) ? 'yes' : 'no')
+                . ', free=' . ($free === false ? '?' : round($free / 1048576) . 'MB')
+                . ', open_basedir=' . (ini_get('open_basedir') ? 'set' : 'none')
+                . ', upload_tmp_dir=' . (ini_get('upload_tmp_dir') ? 'set' : 'default');
+        }
+        $reason = trim(preg_replace('~(?:[A-Za-z]:)?[\\\\/][^\s:()]*[\\\\/]([^\\\\/\s:()]+)~', '…/$1', $reason));
+        if ($reason !== '') error_log('upload_file: ' . $reason);
+        throw new RuntimeException('ไม่สามารถบันทึกไฟล์ได้ (ย้ายไฟล์ไป uploads/' . $subdir . ' ไม่สำเร็จ' . ($reason !== '' ? ': ' . mb_substr($reason, 0, 300) : '') . ')'
+            . (stripos($reason, 'quota') !== false || stripos($reason, 'No space') !== false ? ' — พื้นที่โฮสติ้งเต็ม กรุณาลบไฟล์ที่ไม่ใช้หรือขอเพิ่มพื้นที่' : (stripos($reason, 'open_basedir') !== false ? ' — ค่า open_basedir ของโฮสติ้งไม่อนุญาตโฟลเดอร์ไฟล์ชั่วคราว กรุณาแจ้งผู้ให้บริการโฮสติ้ง' : $hint)));
     }
     return $subdir . '/' . $name;
+}
+
+/** ไฟล์ชั่วคราวอยู่ในโฟลเดอร์ไฟล์ชั่วคราวของ PHP จริง (ใช้ก่อนคัดลอกแทน move_uploaded_file) */
+function upload_tmp_file_ok(string $tmp): bool
+{
+    $real = $tmp !== '' ? @realpath($tmp) : false;
+    if (!$real || !@is_file($real) || !@is_readable($real)) return false;
+    foreach (array_filter([ini_get('upload_tmp_dir'), sys_get_temp_dir()]) as $base) {
+        $base = @realpath($base);
+        if ($base && str_starts_with($real, rtrim($base, '\\/') . DIRECTORY_SEPARATOR)) return true;
+    }
+    return false;
 }
 
 function delete_upload(?string $path): void

@@ -30,8 +30,20 @@ if ($isAdmin) {
 }
 
 $pageTitle = 'แดชบอร์ด';
+// ผู้ดูแล: เตือนเมื่อโฟลเดอร์อัปโหลดเขียนไม่ได้ (อัปโหลดรูปโปรไฟล์/ไฟล์บทเรียน/งานจะล้มเหลว)
+$unwritable = [];
+if ($me['role'] === 'admin') {
+    foreach (['', 'avatars', 'covers', 'lessons', 'editor', 'submissions'] as $sub) {
+        $dir = UPLOAD_PATH . ($sub !== '' ? '/' . $sub : '');
+        if (is_dir($dir) ? !is_writable($dir) : $sub === '') $unwritable[] = 'uploads' . ($sub !== '' ? '/' . $sub : '');
+    }
+}
 require __DIR__ . '/_top.php';
 ?>
+<?php if ($unwritable): ?>
+    <div class="alert alert-danger"><i class="bi bi-exclamation-octagon-fill"></i> <b>อัปโหลดไฟล์ไม่ได้:</b> เว็บเซิร์ฟเวอร์ไม่มีสิทธิ์เขียนโฟลเดอร์ <?= e(implode(', ', $unwritable)) ?>
+        — ตั้งสิทธิ์โฟลเดอร์เป็น 755 หรือ 775 (และเจ้าของเป็นผู้ใช้ของเว็บเซิร์ฟเวอร์) ผ่าน File Manager ของโฮสติ้งหรือ FTP</div>
+<?php endif; ?>
 <div class="row g-3 mb-4">
     <?php foreach ($stats as $s): ?>
         <div class="col-6 col-md-4 col-xl-2">

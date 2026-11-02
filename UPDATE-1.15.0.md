@@ -31,7 +31,7 @@
 - `database/migrations/1.15.3.sql` — สื่อชนิดแผนผังความคิด
 - `database/migrations/1.15.4.sql` — รหัสลงทะเบียนเรียน
 
-## ไฟล์เดิมที่แก้ไข — อัปโหลดทับ (29 ไฟล์)
+## ไฟล์เดิมที่แก้ไข — อัปโหลดทับ (30 ไฟล์)
 
 - `admin/_bottom.php`
 - `admin/_lesson_media_list.php`
@@ -39,6 +39,7 @@
 - `admin/_top.php`
 - `admin/course_form.php`
 - `admin/courses.php`
+- `admin/index.php`
 - `admin/group_form.php`
 - `admin/lesson_form.php`
 - `admin/lessons.php`
