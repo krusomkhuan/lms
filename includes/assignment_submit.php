@@ -13,8 +13,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'submit_assignme
         if (!$pending || $pending['key'] !== $id . ':' . $selectedMediaId || !hash_equals($pending['hash'], assignment_fingerprint($media))) throw new RuntimeException('งานมีการเปลี่ยนแปลงหรือส่งแล้ว กรุณาเปิดงานใหม่ก่อนส่ง');
         $text = post('submission_text');
         if (!is_string($text) || mb_strlen($text) > 20000) throw new RuntimeException('ข้อความส่งงานยาวได้ไม่เกิน 20,000 ตัวอักษร');
+        $link = assignment_link(post('submission_link'));
+        if ($link !== '') $text = $text === '' ? $link : $text . "\n\n" . $link;
         $uploaded = assignment_upload();
-        if ($text === '' && !$uploaded) throw new RuntimeException('กรุณากรอกข้อความหรือเลือกไฟล์งานอย่างน้อยหนึ่งอย่าง');
+        if ($text === '' && !$uploaded) throw new RuntimeException('กรุณาใส่ลิงก์ผลงาน กรอกข้อความ หรือเลือกไฟล์งานอย่างน้อยหนึ่งอย่าง');
         $conn->begin_transaction();
         try {
         $submissionId = db_exec('INSERT INTO assignment_submissions (lesson_id,media_id,source_media_id,user_id,assignment_title,instructions,max_score,submission_text,file_path,original_name,submission_token) VALUES (?,?,?,?,?,?,?,?,?,?,?)',

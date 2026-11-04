@@ -48,7 +48,7 @@ require __DIR__ . '/_top.php';
         <h2 class="h5"><?= e($s['fullname']) ?> <span class="small text-muted"><?= e($s['student_code']) ?></span></h2>
         <p><?= e($s['assignment_title']) ?> <?= !empty($s['is_late']) ? '<span class="badge bg-warning text-dark">ส่งล่าช้า</span>' : '' ?> · <strong><?= e(assignment_status($s['status'])) ?></strong> · ส่งเมื่อ <?= e(thai_date($s['submitted_at'], true)) ?></p>
         <details class="mb-3"><summary>คำสั่งงานฉบับที่ส่ง · คะแนนเต็ม <?= e($s['max_score']) ?></summary><div class="lesson-content mt-2"><?= clean_html($s['instructions']) ?></div></details>
-        <?php if ($s['submission_text']): ?><div class="border rounded p-3 mb-3 text-break" style="white-space:pre-wrap"><?= e($s['submission_text']) ?></div><?php endif; ?>
+        <?php if ($s['submission_text']): ?><div class="border rounded p-3 mb-3 text-break" style="white-space:pre-wrap"><?= assignment_linkify($s['submission_text']) ?></div><?php endif; ?>
         <?php if ($s['file_path']): ?><a class="btn btn-outline-primary mb-3" href="<?= url('assignment_file.php?id=' . $s['id']) ?>">ดาวน์โหลดงาน: <?= e($s['original_name']) ?></a><?php endif; ?>
         <form method="post">
             <?= csrf_field() ?>

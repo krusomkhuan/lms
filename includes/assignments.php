@@ -31,6 +31,35 @@ function assignment_fingerprint(array $media): string
     return hash('sha256', json_encode([$media['title'], $media['content'], $media['assignment_points'], $media['submission_opens_at'] ?? null, $media['submission_due_at'] ?? null, $media['accept_late'] ?? 0], JSON_UNESCAPED_UNICODE));
 }
 
+// ลิงก์ผลงานของนักเรียน: รับเฉพาะ http/https และเติม https:// ให้เมื่อพิมพ์แค่ชื่อเว็บ
+function assignment_link($value): string
+{
+    if ($value === '') return '';
+    $link = is_string($value) ? $value : '';
+    if (preg_match('~^[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:[/?#:]\S*)?$~iD', $link)) $link = 'https://' . $link;
+    if (strlen($link) > 2000 || !preg_match('~^https?://[^\s<>"\'`]+$~iuD', $link) || !parse_url($link, PHP_URL_HOST)) {
+        throw new RuntimeException('ลิงก์ผลงานไม่ถูกต้อง กรุณาวางลิงก์เต็ม เช่น https://sites.google.com/view/portfolio');
+    }
+    return $link;
+}
+
+// แสดงข้อความส่งงานแบบปลอดภัย โดยทำให้ลิงก์ http/https คลิกได้
+function assignment_linkify(string $text): string
+{
+    $parts = preg_split('~(https?://[^\s<>"\'`]+)~iu', $text, -1, PREG_SPLIT_DELIM_CAPTURE);
+    if ($parts === false) return e($text);
+    $html = '';
+    foreach ($parts as $index => $part) {
+        if ($index % 2 === 0) {
+            $html .= e($part);
+            continue;
+        }
+        $url = rtrim($part, '.,;:!?)]}');
+        $html .= '<a href="' . e($url) . '" target="_blank" rel="noopener noreferrer">' . e($url) . '</a>' . e(substr($part, strlen($url)));
+    }
+    return $html;
+}
+
 function assignment_upload(): ?array
 {
     $file = $_FILES['submission_file'] ?? null;

@@ -21,7 +21,7 @@ if (!isset($row, $rowIndex, $types, $fileTypes)) {
         <div class="col-12 media-row-assignment" <?= $row['type'] !== 'assignment' ? 'hidden' : '' ?>>
             <label class="form-label w-100">คะแนนเต็มของงาน<input class="form-control assignment-points" type="number" name="extra_assignment_points[<?= e($rowIndex) ?>]" min="0.01" max="10000" step="0.01" value="<?= e($row['assignment_points'] ?? '100') ?>"></label>
             <?php $schedulePrefix = ['open' => 'extra_submission_opens_at[' . $rowIndex . ']', 'due' => 'extra_submission_due_at[' . $rowIndex . ']', 'late' => 'extra_accept_late[' . $rowIndex . ']']; $scheduleValues = $row; require __DIR__ . '/_assignment_schedule_fields.php'; ?>
-            <p class="form-text">กรอกคำสั่งงานในช่องคำอธิบายด้านล่าง นักเรียนส่งข้อความหรือไฟล์ได้</p>
+            <p class="form-text">กรอกคำสั่งงานในช่องคำอธิบายด้านล่าง นักเรียนส่งลิงก์ ข้อความ หรือไฟล์ได้</p>
         </div>
         <div class="col-12 media-row-quiz" <?= $row['type'] !== 'quiz' ? 'hidden' : '' ?>>
             <?php $quizName = 'extra_quizzes[' . $rowIndex . ']'; $quizValue = $row['quiz_data'] ?? '[]'; require __DIR__ . '/_quiz_builder.php'; ?>

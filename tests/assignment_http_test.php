@@ -120,6 +120,25 @@ try {
     ensure(db_value('SELECT score FROM assignment_submissions WHERE id = ?', [$first['id']]) === '0.00', 'Zero score not saved');
     request_page($teacher, $reportPath, ['submission_id' => $first['id'], 'grade_version' => '2', 'status' => 'graded', 'score' => '25']);
     ensure(curl_getinfo($teacher, CURLINFO_HTTP_CODE) === 400 && db_value('SELECT score FROM assignment_submissions WHERE id = ?', [$first['id']]) === '0.00', 'CSRF grade accepted');
+    // Link submissions: only http/https is accepted, and links render clickable and escaped.
+    $countSubmissions = fn() => (int)db_value('SELECT COUNT(*) FROM assignment_submissions WHERE lesson_id = ?', [$lesson]);
+    $before = $countSubmissions();
+    foreach (['javascript:alert(1)', 'not a link', 'ftp://example.com/x', 'https://example.com/"onclick=alert(1)'] as $badLink) {
+        $html = request_page($student, $path);
+        request_page($student, $path, ['csrf' => field($html, 'csrf'), 'action' => 'submit_assignment', 'submission_token' => field($html, 'submission_token'), 'submission_link' => $badLink]);
+        ensure($countSubmissions() === $before, 'Invalid link accepted: ' . $badLink);
+    }
+    $html = request_page($student, $path);
+    $result = request_page($student, $path, ['csrf' => field($html, 'csrf'), 'action' => 'submit_assignment', 'submission_token' => field($html, 'submission_token'), 'submission_link' => 'www.example.com/work?a=1&b=2']);
+    ensure(str_contains($result, 'ส่งงานเรียบร้อยแล้ว'), 'Link-only submission');
+    $anchor = '<a href="https://www.example.com/work?a=1&amp;b=2" target="_blank" rel="noopener noreferrer">';
+    ensure(str_contains($result, $anchor), 'Student link not clickable');
+    ensure(str_contains(request_page($teacher, $reportPath), $anchor), 'Teacher link not clickable');
+    $html = request_page($student, $path);
+    $result = request_page($student, $path, ['csrf' => field($html, 'csrf'), 'action' => 'submit_assignment', 'submission_token' => field($html, 'submission_token'), 'submission_text' => '<script>alert(1)</script> note', 'submission_link' => 'https://example.com/portfolio']);
+    ensure(db_value('SELECT submission_text FROM assignment_submissions WHERE lesson_id = ? ORDER BY id DESC LIMIT 1', [$lesson]) === "<script>alert(1)</script> note\n\nhttps://example.com/portfolio", 'Text and link stored together');
+    ensure(!str_contains($result, '<script>alert(1)</script>') && str_contains($result, '<a href="https://example.com/portfolio"'), 'Submission text not escaped');
+    ensure(assignment_linkify('See https://a.example/x. <b>') === 'See <a href="https://a.example/x" target="_blank" rel="noopener noreferrer">https://a.example/x</a>. &lt;b&gt;', 'Linkify punctuation/escaping');
     db_exec('UPDATE lessons SET is_published = 0 WHERE id = ?', [$lesson]);
     $hidden = request_page($student, $path);
     ensure(!str_contains($hidden, 'value="submit_assignment"'), 'Hidden assignment access');

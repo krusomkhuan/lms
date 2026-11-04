@@ -263,7 +263,7 @@ require __DIR__ . '/_top.php';
                     <div id="box-assignment" class="mb-3">
                         <label class="form-label">คะแนนเต็มของงาน<input type="number" name="assignment_points" min="0.01" max="10000" step="0.01" class="form-control" value="<?= e($v('assignment_points', '100')) ?>"></label>
                         <?php $schedulePrefix = ['open' => 'submission_opens_at', 'due' => 'submission_due_at', 'late' => 'accept_late']; $scheduleValues = ['submission_opens_at' => $v('submission_opens_at'), 'submission_due_at' => $v('submission_due_at'), 'accept_late' => $v('accept_late', 0)]; require __DIR__ . '/_assignment_schedule_fields.php'; ?>
-                        <p class="form-text">กรอกคำสั่งงานในช่องเนื้อหา / คำอธิบายด้านล่าง นักเรียนส่งข้อความหรือไฟล์ได้ ครูตรวจ ให้คะแนน และส่งข้อเสนอแนะได้</p>
+                        <p class="form-text">กรอกคำสั่งงานในช่องเนื้อหา / คำอธิบายด้านล่าง นักเรียนส่งลิงก์ ข้อความ หรือไฟล์ได้ ครูตรวจ ให้คะแนน และส่งข้อเสนอแนะได้</p>
                     </div>
                     <div id="box-quiz">
                         <?php $quizName = 'quiz_data'; $quizValue = $v('quiz_data', '[]');
