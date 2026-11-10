@@ -45,6 +45,22 @@ $insert = function (array $q, string $cat) use ($courseId, $me) {
         [$courseId, $cat, trim($q['text']), json_encode(array_map('trim', $q['options']), JSON_UNESCAPED_UNICODE), $q['correct'], (int)$me['id']]);
 };
 $error = '';
+// แบบทดสอบที่สุ่มจากคลังแต่ข้อสอบในหมวดที่เลือกเหลือน้อยกว่าจำนวนข้อที่ตั้งไว้
+$shortQuizzes = function () use ($courseId): array {
+    $short = [];
+    foreach (grade_sources($courseId) as $source) {
+        if ($source['media_type'] !== 'quiz') continue;
+        $config = quiz_parse((string)$source['quiz_data']);
+        $have = $config['source'] === 'bank' ? question_bank_count($courseId, (array)$config['categories']) : PHP_INT_MAX;
+        if ($have < (int)$config['count']) $short[] = $source['title'] . ' (ต้องการ ' . (int)$config['count'] . ' เหลือ ' . $have . ' ข้อ)';
+    }
+    return $short;
+};
+$deleted = function (int $count, string $back) use ($self, $shortQuizzes) {
+    flash('success', 'ลบข้อสอบ ' . $count . ' ข้อ ออกจากคลังแล้ว (คะแนนที่นักเรียนสอบไปแล้วไม่เปลี่ยน)');
+    if ($short = $shortQuizzes()) flash('warning', 'ข้อสอบในคลังไม่พอสำหรับแบบทดสอบ: ' . implode(', ', $short) . ' — เพิ่มข้อสอบหรือลดจำนวนข้อที่สุ่ม');
+    redirect($self . ($back !== '' ? '&cat=' . urlencode($back) : ''));
+};
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
@@ -65,9 +81,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 redirect($self . '&cat=' . urlencode($category(post('category'))));
             case 'delete':
-                db_exec('DELETE FROM question_bank WHERE id = ? AND course_id = ?', [(int)post('id'), $courseId]);
-                flash('success', 'ลบข้อสอบแล้ว');
-                redirect($self . '&cat=' . urlencode((string)post('cat')));
+                $deleted(db_query('DELETE FROM question_bank WHERE id = ? AND course_id = ?', [(int)post('id'), $courseId])->affected_rows, (string)post('cat'));
+            case 'delete_selected':
+                $ids = array_values(array_unique(array_filter(array_map('intval', (array)post('ids', [])))));
+                if (!$ids) throw new RuntimeException('กรุณาเลือกข้อสอบที่ต้องการลบ');
+                $deleted(db_query('DELETE FROM question_bank WHERE course_id = ? AND id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')', array_merge([$courseId], $ids))->affected_rows, (string)post('cat'));
+            case 'delete_category':
+                $deleted(db_query('DELETE FROM question_bank WHERE course_id = ? AND category = ?', [$courseId, (string)post('cat')])->affected_rows, '');
             case 'import':
                 $file = $_FILES['import_file'] ?? null;
                 if ($file && $file['error'] !== UPLOAD_ERR_NO_FILE) {
@@ -143,6 +163,8 @@ require __DIR__ . '/_top.php';
             <?php if ($cat !== '' && isset($categories[$cat])): ?>
                 <form method="post" class="d-flex gap-2 mt-3"><?= csrf_field() ?><input type="hidden" name="action" value="rename"><input type="hidden" name="old" value="<?= e($cat) ?>">
                     <input name="new" class="form-control form-control-sm" maxlength="100" value="<?= e($cat) ?>" aria-label="ชื่อหมวดใหม่"><button class="btn btn-sm btn-outline-secondary text-nowrap">เปลี่ยนชื่อหมวด</button></form>
+                <form method="post" class="mt-2" data-confirm="ลบข้อสอบทั้งหมวด “<?= e($cat) ?>” จำนวน <?= (int)$categories[$cat] ?> ข้อ ออกจากคลัง? กู้คืนไม่ได้ (คะแนนที่นักเรียนสอบไปแล้วไม่เปลี่ยน)"><?= csrf_field() ?><input type="hidden" name="action" value="delete_category"><input type="hidden" name="cat" value="<?= e($cat) ?>">
+                    <button class="btn btn-sm btn-outline-danger w-100"><i class="bi bi-trash"></i> ลบทั้งหมวด (<?= (int)$categories[$cat] ?> ข้อ)</button></form>
             <?php endif; ?>
         </div></div>
 
@@ -192,10 +214,17 @@ require __DIR__ . '/_top.php';
     <div class="col-lg-8">
         <form class="d-flex gap-2 mb-3"><input type="hidden" name="course_id" value="<?= $courseId ?>"><input type="hidden" name="cat" value="<?= e($cat) ?>">
             <input name="q" class="form-control" placeholder="ค้นหาโจทย์" value="<?= e($search) ?>"><button class="btn btn-outline-secondary"><i class="bi bi-search"></i></button></form>
+        <?php if ($rows): ?>
+            <form method="post" id="bulkDelete" class="d-flex flex-wrap align-items-center gap-2 mb-2" data-confirm="ลบข้อสอบที่เลือกออกจากคลัง? กู้คืนไม่ได้ (คะแนนที่นักเรียนสอบไปแล้วไม่เปลี่ยน)">
+                <?= csrf_field() ?><input type="hidden" name="action" value="delete_selected"><input type="hidden" name="cat" value="<?= e($cat) ?>">
+                <label class="form-check mb-0"><input type="checkbox" class="form-check-input" id="bankSelectAll"> เลือกทั้งหมดที่แสดง (<?= count($rows) ?> ข้อ)</label>
+                <button class="btn btn-sm btn-outline-danger" id="bankDeleteSelected" disabled><i class="bi bi-trash"></i> ลบข้อที่เลือก (<span id="bankSelectedCount">0</span>)</button>
+            </form>
+        <?php endif; ?>
         <?php foreach ($rows as $n => $r): $options = json_decode($r['options_json'], true); ?>
             <div class="card border-0 shadow-sm rounded-4 mb-2"><div class="card-body">
                 <div class="d-flex justify-content-between gap-2">
-                    <div><span class="badge bg-light text-dark border me-1"><?= e($r['category']) ?></span><b><?= $n + 1 ?>.</b> <?= nl2br(e($r['question_text'])) ?></div>
+                    <div><input type="checkbox" class="form-check-input me-2 bank-select" name="ids[]" value="<?= (int)$r['id'] ?>" form="bulkDelete" aria-label="เลือกข้อที่ <?= $n + 1 ?>"><span class="badge bg-light text-dark border me-1"><?= e($r['category']) ?></span><b><?= $n + 1 ?>.</b> <?= nl2br(e($r['question_text'])) ?></div>
                     <div class="text-nowrap">
                         <a class="btn btn-sm btn-outline-secondary" href="<?= url($self . '&cat=' . urlencode($cat) . '&edit=' . $r['id']) ?>"><i class="bi bi-pencil"></i></a>
                         <form method="post" class="d-inline" data-confirm="ลบข้อสอบข้อนี้ออกจากคลัง?"><?= csrf_field() ?><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $r['id'] ?>"><input type="hidden" name="cat" value="<?= e($cat) ?>">
@@ -228,6 +257,17 @@ require __DIR__ . '/_top.php';
         if (last.querySelector('[type=radio]').checked) box.children[0].querySelector('[type=radio]').checked = true;
         last.remove();
     };
+    const all = document.getElementById('bankSelectAll'), boxes = [...document.querySelectorAll('.bank-select')];
+    const sync = () => {
+        const n = boxes.filter(b => b.checked).length;
+        document.getElementById('bankSelectedCount').textContent = n;
+        document.getElementById('bankDeleteSelected').disabled = !n;
+        all.checked = n === boxes.length; all.indeterminate = n > 0 && n < boxes.length;
+    };
+    if (all) {
+        all.onchange = () => { boxes.forEach(b => b.checked = all.checked); sync(); };
+        boxes.forEach(b => b.onchange = sync);
+    }
 })();
 </script>
 <?php require __DIR__ . '/_bottom.php'; ?>

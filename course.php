@@ -19,7 +19,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (post('action') === 'enroll' && $course['enroll_type'] === 'open' && !$enrolled) {
         // ต้องกรอกรหัสลงทะเบียน (ค่าเริ่มต้น = รหัสวิชา) ผิดครบ 5 ครั้ง รอ 10 นาที
         $fail = $_SESSION['enroll_fail'][$id] ?? ['n' => 0, 'at' => 0];
-        if ($fail['n'] >= 5 && time() - $fail['at'] < 600) {
+        if (course_exclusions_ready() && db_value('SELECT 1 FROM course_exclusions WHERE course_id = ? AND user_id = ?', [$id, (int)$me['id']])) {
+            flash('warning', 'ครูผู้สอนนำคุณออกจากรายวิชานี้แล้ว หากต้องการเรียนต่อ กรุณาติดต่อครูผู้สอน');
+        } elseif ($fail['n'] >= 5 && time() - $fail['at'] < 600) {
             flash('danger', 'กรอกรหัสลงทะเบียนผิดหลายครั้ง กรุณารอ ' . ceil((600 - (time() - $fail['at'])) / 60) . ' นาทีแล้วลองใหม่');
         } elseif (!enroll_key_matches($course, post('enroll_key'))) {
             $_SESSION['enroll_fail'][$id] = ['n' => ($fail['n'] >= 5 ? 0 : $fail['n']) + 1, 'at' => time()];

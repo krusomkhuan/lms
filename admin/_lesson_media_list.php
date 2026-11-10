@@ -71,6 +71,10 @@ $quizBadge = function (?array $row) use ($lessonQuizzes, $lesson) {
                         <button class="btn btn-sm <?= $item['is_published'] ? 'btn-outline-success' : 'btn-outline-secondary' ?>" name="action" value="toggle"><?= $item['is_published'] ? 'แสดง' : 'ซ่อน' ?></button>
                     </form>
                     <a class="btn btn-sm btn-outline-primary" href="<?= url('admin/lesson_form.php?media_id=' . $item['id']) ?>">แก้ไข</a>
+                    <form method="post" action="<?= url('admin/lesson_media_action.php') ?>" data-confirm="ย้าย “<?= e($item['title']) ?>” ออกเป็นบทเรียนแยก วางไว้ก่อน “<?= e($lesson['title']) ?>”? คะแนนและงานที่นักเรียนส่งแล้วย้ายไปด้วย ถ้าเรียนตามลำดับ นักเรียนที่ยังไม่ได้ทำต้องทำบทนี้ก่อนจึงเรียนบทถัดไปได้">
+                        <?= csrf_field() ?><input type="hidden" name="media_id" value="<?= (int)$item['id'] ?>">
+                        <button class="btn btn-sm btn-outline-secondary text-nowrap" name="action" value="extract" title="ย้ายออกเป็นบทเรียนแยก วางไว้ก่อนบทนี้"><i class="bi bi-box-arrow-up-left"></i> แยกเป็นบทเรียน</button>
+                    </form>
                     <form method="post" action="<?= url('admin/lesson_media_action.php') ?>" data-confirm="ลบสื่อรายการนี้?">
                         <?= csrf_field() ?><input type="hidden" name="media_id" value="<?= (int)$item['id'] ?>">
                         <button class="btn btn-sm btn-outline-danger" name="action" value="delete">ลบ</button>

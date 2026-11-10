@@ -242,7 +242,21 @@ function can_manage_course(int $courseId): bool
     return !student_preview() && staff_manages_course($courseId);
 }
 
-/** ผู้เรียนมีสิทธิ์เรียนวิชานี้ (ลงทะเบียนเอง หรืออยู่ในกลุ่มที่ได้รับสิทธิ์; โหมดมุมมองผู้เรียนถือว่าเรียนวิชาที่ตนจัดการ) */
+function course_exclusions_ready(): bool
+{
+    static $ready;
+    return $ready ??= (bool)db_value("SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'course_exclusions'");
+}
+
+/** เงื่อนไข SQL ตัดนักเรียนในกลุ่มที่ครูนำออกจากรายวิชานั้น (ใช้ต่อท้ายส่วนที่ให้สิทธิ์ผ่านกลุ่ม) */
+function group_access_filter(string $courseColumn = 'cg.course_id', string $userColumn = 'gm.user_id'): string
+{
+    return course_exclusions_ready()
+        ? " AND NOT EXISTS (SELECT 1 FROM course_exclusions ce WHERE ce.course_id = $courseColumn AND ce.user_id = $userColumn)"
+        : '';
+}
+
+/** ผู้เรียนมีสิทธิ์เรียนวิชานี้ (ลงทะเบียนเอง หรืออยู่ในกลุ่มที่ได้รับสิทธิ์และครูไม่ได้นำออก; โหมดมุมมองผู้เรียนถือว่าเรียนวิชาที่ตนจัดการ) */
 function is_enrolled(int $courseId, int $userId): bool
 {
     $u = current_user();
@@ -250,7 +264,7 @@ function is_enrolled(int $courseId, int $userId): bool
     return (bool)db_value(
         'SELECT 1 FROM enrollments WHERE course_id = ? AND user_id = ?
          UNION SELECT 1 FROM course_groups cg JOIN group_members gm ON gm.group_id = cg.group_id
-         WHERE cg.course_id = ? AND gm.user_id = ? LIMIT 1',
+         WHERE cg.course_id = ? AND gm.user_id = ?' . group_access_filter() . ' LIMIT 1',
         [$courseId, $userId, $courseId, $userId]
     );
 }
@@ -275,7 +289,7 @@ function can_view_course(int $courseId): bool
 function student_course_ids_sql(): string
 {
     return '(SELECT course_id FROM enrollments WHERE user_id = ?
-             UNION SELECT cg.course_id FROM course_groups cg JOIN group_members gm ON gm.group_id = cg.group_id WHERE gm.user_id = ?)';
+             UNION SELECT cg.course_id FROM course_groups cg JOIN group_members gm ON gm.group_id = cg.group_id WHERE gm.user_id = ?' . group_access_filter() . ')';
 }
 
 /** กรอง HTML เนื้อหาบทเรียน: เก็บแท็กจัดรูปแบบ ตัด script / event handler / javascript: */

@@ -64,6 +64,10 @@ require __DIR__ . '/_top.php';
         <?php if (setting('ai_enabled') === '1' && setting('ai_teacher_enabled', '1') === '1'): ?>
             <a href="<?= url('admin/ai_teacher.php?course_id=' . $courseId) ?>" class="btn btn-outline-primary"><i class="bi bi-stars"></i> ผู้ช่วยสอน AI</a>
         <?php endif; ?>
+        <?php if (quiz_ready()): ?>
+            <a href="<?= url('admin/lesson_form.php?course_id=' . $courseId . '&quiz=pre') ?>" class="btn btn-outline-warning" title="บทเรียนแบบทดสอบก่อนเรียน อยู่นอกหน่วย วางไว้ก่อนทุกหน่วย"><i class="bi bi-1-circle"></i> + ก่อนเรียน (ต้นรายวิชา)</a>
+            <a href="<?= url('admin/lesson_form.php?course_id=' . $courseId . '&quiz=post') ?>" class="btn btn-outline-success" title="บทเรียนแบบทดสอบหลังเรียน อยู่นอกหน่วย ต่อท้ายหน่วยสุดท้าย และจับคู่กับก่อนเรียนของรายวิชา"><i class="bi bi-2-circle"></i> + หลังเรียน (ท้ายรายวิชา)</a>
+        <?php endif; ?>
         <a href="<?= url('admin/lesson_form.php?course_id=' . $courseId) ?>" class="btn btn-vt"><i class="bi bi-plus-lg"></i> เพิ่มบทเรียน/สื่อ</a>
     </div>
 </div>

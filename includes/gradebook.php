@@ -56,7 +56,7 @@ function grade_roster(int $courseId, int $groupId = 0): array
     return db_all("SELECT u.id,u.fullname,u.student_code,u.username,
         (SELECT GROUP_CONCAT(g.name ORDER BY g.name SEPARATOR ', ') FROM group_members gm JOIN student_groups g ON g.id=gm.group_id JOIN course_groups cg ON cg.group_id=g.id WHERE gm.user_id=u.id AND cg.course_id=?) AS group_names
         FROM users u WHERE u.role='student' AND u.id IN
-        (SELECT user_id FROM enrollments WHERE course_id=? UNION SELECT gm.user_id FROM group_members gm JOIN course_groups cg ON cg.group_id=gm.group_id WHERE cg.course_id=?)" . $filter . ' ORDER BY u.student_code,u.fullname,u.id', $params);
+        (SELECT user_id FROM enrollments WHERE course_id=? UNION SELECT gm.user_id FROM group_members gm JOIN course_groups cg ON cg.group_id=gm.group_id WHERE cg.course_id=?" . group_access_filter() . ')' . $filter . ' ORDER BY u.student_code,u.fullname,u.id', $params);
 }
 
 function grade_sources(int $courseId): array

@@ -34,7 +34,9 @@ $types = media_types();
 foreach (['slides', 'mindmap'] as $newType) if (!media_type_ready($newType)) unset($types[$newType]);
 if (($lesson['media_type'] ?? '') !== 'file') unset($types['file']);
 $fileTypes = ['video', 'pdf', 'slides', 'file', 'image', 'mindmap', 'audio'];
-$isNewLesson = !$isMedia && !$lesson;
+// ปุ่ม "+ แบบทดสอบก่อนเรียน (ต้นรายวิชา) / หลังเรียน (ท้ายรายวิชา)": บทเรียนใหม่ที่เนื้อหาหลักเป็นแบบทดสอบ อยู่นอกหน่วยการเรียน
+$courseQuizKind = !$isMedia && !$lesson && in_array($_GET['quiz'] ?? '', ['pre', 'post'], true) && quiz_ready() ? $_GET['quiz'] : '';
+$isNewLesson = !$isMedia && !$lesson && !$courseQuizKind;
 $linkRows = [];
 $urls = (array)post('extra_urls', []);
 $titles = (array)post('extra_titles', []);
@@ -153,6 +155,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             db_exec('UPDATE lessons SET title=?, media_type=?, content=?, media_url=?, file_path=?, is_published=? WHERE id=?', array_merge($data, [$id]));
         } else {
             $order = (int)db_value('SELECT COALESCE(MAX(sort_order), 0) + 1 FROM lessons WHERE course_id = ?', [$courseId]);
+            // แบบทดสอบก่อนเรียนของรายวิชาอยู่ก่อนทุกหน่วย ส่วนบทอื่น (รวมหลังเรียน) ต่อท้าย
+            if ($courseQuizKind === 'pre') $order = (int)db_value('SELECT COALESCE(MIN(sort_order), 1) - 1 FROM lessons WHERE course_id = ?', [$courseId]);
             $id = db_exec('INSERT INTO lessons (title,media_type,content,media_url,file_path,is_published,course_id,sort_order) VALUES (?,?,?,?,?,?,?,?)',
                 array_merge($data, [$courseId, $order]));
         }
@@ -200,17 +204,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ปุ่ม "+ แบบทดสอบก่อน/หลังเรียน" ในรายการสื่อ: ตั้งค่าเริ่มต้นให้สื่อใหม่ (สุ่มจากคลังถ้ามีข้อสอบ, ทำได้ 1 ครั้ง, หลังเรียนจับคู่ก่อนเรียนของบทนี้)
 $preset = [];
 $presetKind = $_GET['quiz'] ?? '';
-if ($isMedia && !$lesson && in_array($presetKind, ['pre', 'post'], true) && quiz_ready()) {
+if ((($isMedia && !$lesson) || $courseQuizKind) && in_array($presetKind, ['pre', 'post'], true) && quiz_ready()) {
     $hasBank = (bool)question_bank_categories($courseId);
     $config = ['questions' => [], 'source' => $hasBank ? 'bank' : 'manual', 'categories' => [], 'count' => $hasBank ? min(10, question_bank_count($courseId)) : 0,
         'kind' => $presetKind, 'pair' => '', 'max_attempts' => 1, 'shuffle' => false, 'opens_at' => '', 'closes_at' => ''];
-    // หลังเรียน: ใช้ข้อสอบชุดเดียวกับก่อนเรียนของบทนี้ (หมวด จำนวนข้อ หรือข้อที่ครูสร้างเอง) เพื่อเทียบผลได้ตรง
-    if ($presetKind === 'post') foreach (lesson_quizzes($parentLesson) as $key => $q) {
-        if ($q['kind'] !== 'pre') continue;
+    // หลังเรียน: ใช้ข้อสอบชุดเดียวกับก่อนเรียน (หมวด จำนวนข้อ หรือข้อที่ครูสร้างเอง) เพื่อเทียบผลได้ตรง
+    // สื่อในบท = ก่อนเรียนของบทนี้ · ท้ายรายวิชา = บทเรียนแบบทดสอบก่อนเรียนนอกหน่วย (บทแรกที่พบ)
+    $preSources = $courseQuizKind
+        ? array_merge(...array_map('lesson_quizzes', db_all("SELECT * FROM lessons WHERE course_id = ? AND media_type = 'quiz' ORDER BY sort_order, id", [$courseId])) ?: [[]])
+        : lesson_quizzes($parentLesson);
+    if ($presetKind === 'post') foreach ($preSources as $key => $q) {
+        if ($q['kind'] !== 'pre' || ($courseQuizKind && $q['media_id'])) continue;
         $config = array_merge($config, array_intersect_key($q['config'], array_flip(['questions', 'source', 'categories', 'count', 'shuffle'])), ['pair' => $key]);
         break;
     }
-    $preset = ['media_type' => 'quiz', 'title' => mb_substr(QUIZ_KINDS[$presetKind] . ' ' . $parentLesson['title'], 0, 200), 'quiz_data' => json_encode($config, JSON_UNESCAPED_UNICODE)];
+    $preset = ['media_type' => 'quiz', 'title' => mb_substr(QUIZ_KINDS[$presetKind] . ' ' . ($courseQuizKind ? $course['title'] : $parentLesson['title']), 0, 200), 'quiz_data' => json_encode($config, JSON_UNESCAPED_UNICODE)];
 }
 $v = fn($k, $d = '') => $_SERVER['REQUEST_METHOD'] === 'POST' ? post($k, $d) : ($lesson[$k] ?? $preset[$k] ?? $d);
 $curType = $v('media_type', 'text');
@@ -254,7 +262,7 @@ require __DIR__ . '/_top.php';
                         <?php endforeach; ?>
                     </div>
 
-                    <?php if (!$isMedia && !$isNewLesson && $curType !== 'text'): ?>
+                    <?php if (!$isMedia && $lesson && $curType !== 'text'): ?>
                         <div class="mb-3">
                             <button type="button" id="remove-primary-media" class="btn btn-sm btn-outline-danger">ลบสื่อหลักรายการนี้</button>
                             <div id="remove-primary-status" class="form-text" role="status">ลบลิงก์หรือไฟล์สื่อหลัก โดยเก็บบทเรียนและคำอธิบายไว้ กดบันทึกเพื่อยืนยัน</div>

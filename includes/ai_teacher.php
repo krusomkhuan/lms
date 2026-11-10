@@ -61,7 +61,7 @@ function ai_course_stats(int $courseId): string
 function student_course_ids_sql_for_course(): string
 {
     return '(SELECT user_id FROM enrollments WHERE course_id = ?
-             UNION SELECT gm.user_id FROM course_groups cg JOIN group_members gm ON gm.group_id = cg.group_id WHERE cg.course_id = ?)';
+             UNION SELECT gm.user_id FROM course_groups cg JOIN group_members gm ON gm.group_id = cg.group_id WHERE cg.course_id = ?' . group_access_filter() . ')';
 }
 
 /** system prompt สำหรับผู้ช่วยครู */

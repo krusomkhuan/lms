@@ -4,7 +4,7 @@
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
-DROP TABLE IF EXISTS attendance_records, attendance_config, question_bank, grade_results, grade_runs, grade_manual_scores, grade_items, course_grade_config, assignment_submissions, quiz_attempts, lesson_media, ai_logs, ai_drafts, pdpa_requests, consent_logs, lesson_progress, enrollments, course_groups, group_teachers, group_members,
+DROP TABLE IF EXISTS media_progress, course_exclusions, attendance_records, attendance_config, question_bank, grade_results, grade_runs, grade_manual_scores, grade_items, course_grade_config, assignment_submissions, quiz_attempts, lesson_media, ai_logs, ai_drafts, pdpa_requests, consent_logs, lesson_progress, enrollments, course_groups, group_teachers, group_members,
   student_groups, lessons, course_teachers, courses, categories, users, settings;
 
 SET FOREIGN_KEY_CHECKS = 1;
@@ -389,4 +389,28 @@ CREATE TABLE IF NOT EXISTS attendance_records (
   FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (marked_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- สื่อในบทเรียนที่นักเรียนเปิดแล้ว (ใช้ล็อกสื่อตามลำดับ; media_id 0 = เนื้อหาหลัก)
+CREATE TABLE IF NOT EXISTS media_progress (
+  user_id INT UNSIGNED NOT NULL,
+  lesson_id INT UNSIGNED NOT NULL,
+  media_id INT UNSIGNED NOT NULL DEFAULT 0,
+  viewed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, lesson_id, media_id),
+  INDEX (lesson_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- นักเรียนในกลุ่มที่ครูนำออกจากรายวิชาเดียว (ยังอยู่ในกลุ่มและรายวิชาอื่น)
+CREATE TABLE IF NOT EXISTS course_exclusions (
+  course_id INT UNSIGNED NOT NULL,
+  user_id INT UNSIGNED NOT NULL,
+  excluded_by INT UNSIGNED NULL,
+  excluded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (course_id, user_id),
+  FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (excluded_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

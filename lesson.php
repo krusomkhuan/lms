@@ -32,18 +32,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !in_array(post('action'), ['complet
     http_response_code(400);
     exit('ข้อมูลส่งไม่ครบหรือไฟล์ใหญ่เกินที่เซิร์ฟเวอร์กำหนด กรุณาย้อนกลับแล้วลองใหม่');
 }
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array(post('action'), ['complete', 'undo'], true)) {
-    verify_csrf();
-    if (post('action') === 'complete') {
-        db_exec('INSERT IGNORE INTO lesson_progress (user_id, lesson_id) VALUES (?, ?)', [(int)$me['id'], $id]);
-    } else {
-        db_exec('DELETE FROM lesson_progress WHERE user_id = ? AND lesson_id = ?', [(int)$me['id'], $id]);
-    }
-    $nextId = (int)post('next_id');
-    redirect('lesson.php?id=' . (post('action') === 'complete' && $nextId ? $nextId : $id));
-}
+// บทเรียนที่เนื้อหาหลักเป็นแบบทดสอบก่อน/หลังเรียน: ต้องส่งคำตอบก่อนจึงนับว่าเรียนจบ (ส่งแล้วระบบบันทึกให้อัตโนมัติ)
+$mainQuizKind = $lesson['media_type'] === 'quiz' && quiz_ready() ? quiz_parse((string)$lesson['quiz_data'])['kind'] : '';
+$pretestPending = !$canManage && in_array($mainQuizKind, ['pre', 'post'], true)
+    && !db_value('SELECT 1 FROM quiz_attempts WHERE lesson_id = ? AND source_media_id = 0 AND user_id = ?', [$id, (int)$me['id']]);
 
-$lessons = db_all('SELECT id, title, media_type, is_published FROM lessons WHERE course_id = ?' . ($canManage ? '' : ' AND is_published = 1' . lesson_schedule_sql()) . ' ORDER BY sort_order, id', [$courseId]);
+$lessons = db_all('SELECT * FROM lessons WHERE course_id = ?' . ($canManage ? '' : ' AND is_published = 1' . lesson_schedule_sql()) . ' ORDER BY sort_order, id', [$courseId]);
 $mediaByLesson = course_lesson_media($courseId, $canManage);
 $selectedMediaId = get_int('media_id');
 $media = $lesson;
@@ -56,6 +50,40 @@ if ($selectedMediaId) {
         http_response_code(404);
         exit('ไม่พบสื่อหรือสื่อนี้ยังไม่เผยแพร่');
     }
+}
+
+// วิชาที่เรียนตามลำดับ: สื่อในบทต้องเรียนตามลำดับด้วย (เฉพาะบัญชีนักเรียน)
+$stepTracking = !$canManage && $me['role'] === 'student';
+$doneLessons = array_column(db_all('SELECT lesson_id FROM lesson_progress WHERE user_id = ?', [(int)$me['id']]), 'lesson_id');
+$stepState = $stepTracking ? lesson_step_state($courseId, (int)$me['id'], $lessons, $mediaByLesson, $doneLessons) : [];
+if (isset($stepState[$id]['locked'][$selectedMediaId])) {
+    $pendingMedia = (int)$stepState[$id]['pending'];
+    flash('warning', 'บทเรียนนี้ต้องเรียนตามลำดับ · กรุณาเรียน “' . $stepState[$id]['pending_title'] . '” ให้เสร็จก่อน');
+    redirect('lesson.php?id=' . $id . ($pendingMedia ? '&media_id=' . $pendingMedia : ''));
+}
+if ($stepState && $_SERVER['REQUEST_METHOD'] === 'GET') {
+    db_exec('INSERT IGNORE INTO media_progress (user_id, lesson_id, media_id) VALUES (?, ?, ?)', [(int)$me['id'], $id, $selectedMediaId]);
+    $stepState = lesson_step_state($courseId, (int)$me['id'], $lessons, $mediaByLesson, $doneLessons);
+}
+$stepPending = $stepState[$id]['pending'] ?? null;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array(post('action'), ['complete', 'undo'], true)) {
+    verify_csrf();
+    if (post('action') === 'complete' && $pretestPending) {
+        flash('warning', 'กรุณาทำ' . QUIZ_KINDS[$mainQuizKind] . 'ให้เสร็จก่อน ระบบจะบันทึกว่าเรียนจบบทนี้ให้อัตโนมัติ');
+        redirect('lesson.php?id=' . $id . '#quiz');
+    }
+    if (post('action') === 'complete' && $stepPending !== null) {
+        flash('warning', 'กรุณาเรียนให้ครบทุกรายการในบทนี้ตามลำดับก่อน · ต่อไป: “' . $stepState[$id]['pending_title'] . '”');
+        redirect('lesson.php?id=' . $id . ($stepPending ? '&media_id=' . $stepPending : ''));
+    }
+    if (post('action') === 'complete') {
+        db_exec('INSERT IGNORE INTO lesson_progress (user_id, lesson_id) VALUES (?, ?)', [(int)$me['id'], $id]);
+    } else {
+        db_exec('DELETE FROM lesson_progress WHERE user_id = ? AND lesson_id = ?', [(int)$me['id'], $id]);
+    }
+    $nextId = (int)post('next_id');
+    redirect('lesson.php?id=' . (post('action') === 'complete' && $nextId ? $nextId : $id));
 }
 require __DIR__ . '/includes/quiz_submit.php';
 require __DIR__ . '/includes/assignment_submit.php';
@@ -102,6 +130,13 @@ require __DIR__ . '/includes/header.php';
                             <span class="flex-grow-1">เนื้อหาหลัก · <?= e($types[$l['media_type']]['label']) ?><?= !$l['is_published'] ? ' (ซ่อนบทเรียน)' : '' ?></span>
                         </a>
                         <?php foreach ($mediaByLesson[(int)$l['id']] ?? [] as $entry): ?>
+                            <?php if (isset($stepState[(int)$l['id']]['locked'][(int)$entry['id']])): ?>
+                                <div class="list-group-item small d-flex gap-2 ps-4 text-muted" title="เรียน “<?= e($stepState[(int)$l['id']]['locked'][(int)$entry['id']]) ?>” ให้เสร็จก่อน">
+                                    <i class="bi bi-lock"></i>
+                                    <span class="flex-grow-1"><?= e($entry['title']) ?><small class="d-block">ล็อก · เรียนรายการก่อนหน้าให้เสร็จก่อน</small></span>
+                                </div>
+                                <?php continue; ?>
+                            <?php endif; ?>
                             <a href="<?= url('lesson.php?id=' . $l['id'] . '&media_id=' . $entry['id']) ?>" class="list-group-item list-group-item-action small d-flex gap-2 ps-4 <?= $l['id'] == $id && (int)$entry['id'] === $selectedMediaId ? 'active' : '' ?>" <?= $l['id'] == $id && (int)$entry['id'] === $selectedMediaId ? 'aria-current="page"' : '' ?>>
                                 <i class="bi <?= $types[$entry['media_type']]['icon'] ?>"></i>
                                 <span class="flex-grow-1"><?= e($entry['title']) ?><small class="d-block"><?= e($types[$entry['media_type']]['label']) ?><?= !$entry['is_published'] ? ' · ซ่อน' : '' ?></small></span>
@@ -204,6 +239,12 @@ require __DIR__ . '/includes/header.php';
                             <button name="action" value="undo" class="btn btn-outline-success"><i class="bi bi-check2-all"></i> เรียนจบแล้ว (ยกเลิก)</button>
                             <?php if ($nextId && isset($locks[$nextId])): ?><span class="btn btn-outline-secondary disabled"><i class="bi bi-lock"></i> บทถัดไป</span>
                             <?php elseif ($nextId): ?><a class="btn btn-vt" href="<?= url('lesson.php?id=' . $nextId) ?>">บทถัดไป <i class="bi bi-chevron-right"></i></a><?php endif; ?>
+                        <?php elseif ($pretestPending): ?>
+                            <span class="btn btn-outline-secondary disabled"><i class="bi bi-lock"></i> ทำ<?= e(QUIZ_KINDS[$mainQuizKind]) ?>ให้เสร็จก่อน</span>
+                        <?php elseif ($stepPending !== null && $stepPending !== $selectedMediaId): ?>
+                            <a class="btn btn-vt" href="<?= url('lesson.php?id=' . $id . ($stepPending ? '&media_id=' . $stepPending : '')) ?>">ต่อไป: <?= e($stepState[$id]['pending_title']) ?> <i class="bi bi-chevron-right"></i></a>
+                        <?php elseif ($stepPending !== null): ?>
+                            <span class="btn btn-outline-secondary disabled"><i class="bi bi-lock"></i> ทำ<?= e($types[$media['media_type']]['label']) ?>นี้ให้เสร็จก่อน</span>
                         <?php else: ?>
                             <button name="action" value="complete" class="btn btn-success"><i class="bi bi-check2"></i> เรียนจบบทนี้<?= $nextId ? ' → บทถัดไป' : '' ?></button>
                         <?php endif; ?>

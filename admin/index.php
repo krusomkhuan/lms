@@ -22,7 +22,7 @@ if ($isAdmin) {
         ['รายวิชาที่สอน', db_value("SELECT COUNT(*) FROM course_teachers WHERE teacher_id = ?", [$uid]), 'bi-journal-bookmark', 'primary', 'courses.php'],
         ['บทเรียนของฉัน', db_value("SELECT COUNT(*) FROM lessons WHERE course_id IN $mine", [$uid]), 'bi-collection-play', 'danger', 'courses.php'],
         ['ผู้เรียนในวิชา', db_value("SELECT COUNT(DISTINCT u) FROM (SELECT user_id u FROM enrollments WHERE course_id IN $mine
-              UNION SELECT gm.user_id FROM course_groups cg JOIN group_members gm ON gm.group_id = cg.group_id WHERE cg.course_id IN $mine) x", [$uid, $uid]), 'bi-people', 'warning', 'courses.php'],
+              UNION SELECT gm.user_id FROM course_groups cg JOIN group_members gm ON gm.group_id = cg.group_id WHERE cg.course_id IN $mine" . group_access_filter() . ") x", [$uid, $uid]), 'bi-people', 'warning', 'courses.php'],
         ['กลุ่มที่ฉันสอน', db_value('SELECT COUNT(*) FROM group_teachers WHERE teacher_id = ?', [$uid]), 'bi-diagram-3', 'info', 'groups.php'],
     ];
     $courses = db_all(course_list_sql() . " WHERE c.id IN $mine ORDER BY c.created_at DESC", [$uid]);

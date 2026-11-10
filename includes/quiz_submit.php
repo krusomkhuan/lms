@@ -27,6 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && post('action') === 'submit_quiz') {
             [$id, $selectedMediaId ?: null, $selectedMediaId, (int)$me['id'], $media['title'], $score, count($questions),
                 json_encode($answers), $snapshot, $token]);
         unset($_SESSION['quiz_tokens'][$token]);
+        // แบบทดสอบก่อน/หลังเรียนที่เป็นเนื้อหาหลักของบท: ส่งแล้วนับว่าเรียนจบบทนี้ เพื่อเปิดบทถัดไป
+        if (!$selectedMediaId && in_array($quizConfig['kind'], ['pre', 'post'], true)) db_exec('INSERT IGNORE INTO lesson_progress (user_id, lesson_id) VALUES (?, ?)', [(int)$me['id'], $id]);
         flash('success', 'บันทึกคะแนนแล้ว: ' . $score . ' / ' . count($questions) . ' คะแนน');
         redirect('lesson.php?id=' . $id . ($selectedMediaId ? '&media_id=' . $selectedMediaId : '') . '#quiz');
     } catch (RuntimeException $ex) {

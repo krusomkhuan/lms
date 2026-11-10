@@ -15,11 +15,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $n = 0;
         foreach ((array)post('user_ids', []) as $u) {
             $n += db_exec("INSERT IGNORE INTO enrollments (course_id, user_id) SELECT ?, id FROM users WHERE id = ? AND role = 'student'", [$courseId, (int)$u]);
+            if (course_exclusions_ready()) db_exec('DELETE FROM course_exclusions WHERE course_id = ? AND user_id = ?', [$courseId, (int)$u]);
         }
         flash('success', "เพิ่มผู้เรียน $n คน");
     } elseif (post('action') === 'remove') {
-        db_exec('DELETE FROM enrollments WHERE course_id = ? AND user_id = ?', [$courseId, (int)post('user_id')]);
-        flash('info', 'นำผู้เรียนออกจากรายวิชาแล้ว (หากอยู่ในกลุ่มที่ได้รับสิทธิ์ยังคงเข้าเรียนได้)');
+        $uid = (int)post('user_id');
+        // นักเรียนที่ได้สิทธิ์ผ่านกลุ่ม: บันทึกว่านำออกจากรายวิชานี้ โดยยังอยู่ในกลุ่มและรายวิชาอื่น
+        $viaGroup = (bool)db_value('SELECT 1 FROM course_groups cg JOIN group_members gm ON gm.group_id = cg.group_id WHERE cg.course_id = ? AND gm.user_id = ?', [$courseId, $uid]);
+        if ($viaGroup && !course_exclusions_ready()) {
+            flash('warning', 'กรุณารัน database/migrations/1.16.2.sql ก่อนนำนักเรียนในกลุ่มออกจากรายวิชา');
+        } else {
+            db_exec('DELETE FROM enrollments WHERE course_id = ? AND user_id = ?', [$courseId, $uid]);
+            if ($viaGroup) db_exec('INSERT IGNORE INTO course_exclusions (course_id, user_id, excluded_by) VALUES (?, ?, ?)', [$courseId, $uid, (int)$me['id']]);
+            flash('info', $viaGroup ? 'นำผู้เรียนออกจากรายวิชานี้แล้ว ยังอยู่ในกลุ่มและรายวิชาอื่นตามเดิม คืนสิทธิ์ได้จากรายการ "นำออกจากรายวิชาแล้ว"' : 'นำผู้เรียนออกจากรายวิชาแล้ว');
+        }
+    } elseif (post('action') === 'restore' && course_exclusions_ready()) {
+        db_exec('DELETE FROM course_exclusions WHERE course_id = ? AND user_id = ?', [$courseId, (int)post('user_id')]);
+        flash('success', 'คืนสิทธิ์เรียนรายวิชานี้แล้ว');
     }
     redirect('admin/course_students.php?course_id=' . $courseId);
 }
@@ -38,12 +50,18 @@ $students = db_all(
         UNION ALL
         SELECT gm.user_id, 'group', g.name FROM course_groups cg
           JOIN group_members gm ON gm.group_id = cg.group_id JOIN student_groups g ON g.id = cg.group_id
-        WHERE cg.course_id = ?
+        WHERE cg.course_id = ?" . group_access_filter() . "
      ) s JOIN users u ON u.id = s.user_id
      GROUP BY u.id ORDER BY u.student_code, u.fullname",
     [$courseId, $courseId, $courseId, $courseId]
 );
-$enrolledIds = array_column($students, 'id');
+$excluded = course_exclusions_ready() ? db_all(
+    'SELECT u.id, u.fullname, u.student_code, ce.excluded_at, b.fullname AS excluded_by_name FROM course_exclusions ce
+     JOIN users u ON u.id = ce.user_id LEFT JOIN users b ON b.id = ce.excluded_by WHERE ce.course_id = ? ORDER BY u.student_code, u.fullname',
+    [$courseId]
+) : [];
+// คนที่นำออกแล้วคืนสิทธิ์ด้วยปุ่ม "คืนสิทธิ์" ไม่แสดงซ้ำในรายการเพิ่มผู้เรียน
+$enrolledIds = array_merge(array_column($students, 'id'), array_column($excluded, 'id'));
 $candidates = db_all("SELECT id, fullname, student_code FROM users WHERE role = 'student' AND status = 'active' ORDER BY student_code, fullname");
 $candidates = array_filter($candidates, fn($c) => !in_array($c['id'], $enrolledIds));
 
@@ -80,10 +98,11 @@ require __DIR__ . '/_top.php';
                             </td>
                             <td class="small text-muted"><?= thai_date($s['last_at'], true) ?></td>
                             <td class="text-end">
-                                <?php if ($s['self_enrolled']): ?>
-                                    <form method="post" data-confirm="นำผู้เรียนออกจากรายวิชา?"><?= csrf_field() ?><input type="hidden" name="action" value="remove"><input type="hidden" name="user_id" value="<?= $s['id'] ?>">
-                                        <button class="btn btn-sm btn-outline-danger"><i class="bi bi-x-lg"></i></button></form>
-                                <?php endif; ?>
+                                <?php $confirm = $s['group_names']
+                                    ? 'นำ ' . $s['fullname'] . ' ออกจากรายวิชานี้? นักเรียนยังอยู่ในกลุ่ม ' . $s['group_names'] . ' และรายวิชาอื่นตามเดิม คืนสิทธิ์ได้ภายหลัง'
+                                    : 'นำ ' . $s['fullname'] . ' ออกจากรายวิชานี้?'; ?>
+                                <form method="post" data-confirm="<?= e($confirm) ?>"><?= csrf_field() ?><input type="hidden" name="action" value="remove"><input type="hidden" name="user_id" value="<?= $s['id'] ?>">
+                                    <button class="btn btn-sm btn-outline-danger" title="นำออกจากรายวิชานี้" aria-label="นำ <?= e($s['fullname']) ?> ออกจากรายวิชานี้"><i class="bi bi-x-lg"></i></button></form>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -92,6 +111,29 @@ require __DIR__ . '/_top.php';
                 </table>
             </div>
         </div>
+        <?php if ($excluded): ?>
+            <div class="card border-0 shadow-sm rounded-4 mt-4">
+                <div class="card-header bg-white"><b>นำออกจากรายวิชาแล้ว <?= count($excluded) ?> คน</b> <span class="small text-muted">· ยังอยู่ในกลุ่มเดิมและเรียนรายวิชาอื่นได้ ข้อมูลการเรียนเดิมยังเก็บไว้</span></div>
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead class="table-light"><tr><th>รหัส</th><th>ชื่อ-นามสกุล</th><th>นำออกเมื่อ</th><th></th></tr></thead>
+                        <tbody>
+                        <?php foreach ($excluded as $x): ?>
+                            <tr>
+                                <td class="small"><?= e($x['student_code'] ?: '-') ?></td>
+                                <td><?= e($x['fullname']) ?></td>
+                                <td class="small text-muted"><?= thai_date($x['excluded_at'], true) ?><?= $x['excluded_by_name'] ? ' · ' . e($x['excluded_by_name']) : '' ?></td>
+                                <td class="text-end">
+                                    <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="restore"><input type="hidden" name="user_id" value="<?= (int)$x['id'] ?>">
+                                        <button class="btn btn-sm btn-outline-success"><i class="bi bi-arrow-counterclockwise"></i> คืนสิทธิ์</button></form>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        <?php endif; ?>
     </div>
     <div class="col-xl-4">
         <form method="post" class="card border-0 shadow-sm rounded-4">
