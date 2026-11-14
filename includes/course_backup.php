@@ -191,6 +191,7 @@ function course_backup_import(string $zipPath, array $me, string $code, string $
         if (gradebook_ready()) {
             if (!empty($data['grade_config']['scale_json'])) db_exec('INSERT INTO course_grade_config (course_id, scale_json) VALUES (?, ?)', [$courseId, $data['grade_config']['scale_json']]);
             foreach ($data['grade_items'] ?? [] as $item) {
+                if ($item['kind'] === 'board') continue; // กระดานกิจกรรมไม่รวมในไฟล์สำรองรายวิชา
                 if ($item['kind'] !== 'manual') {
                     [$kind, $l, $m] = explode(':', $item['source_key']) + ['', 0, 0];
                     $key = $remapKey($l . ':' . $m);

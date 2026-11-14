@@ -1,5 +1,6 @@
 <?php
 // เนื้อหาคู่มือการใช้งาน — ใช้ร่วมกันระหว่างหน้าเว็บ (manual.php) และไฟล์ Word/PDF (tools/export_manual.php)
+require_once __DIR__ . '/manual_boards.php';
 
 /** $forPrint = true: ไม่ใส่ข้อความที่ขึ้นกับสถานะระบบขณะนั้น (ใช้กับไฟล์ Word/PDF) */
 function manual_content(bool $forPrint = false): array
@@ -138,6 +139,8 @@ function manual_content(bool $forPrint = false): array
                 ]) . $tip('AI อ่านได้เฉพาะเนื้อหาข้อความของบทเรียน ไม่เห็นเนื้อหาในวิดีโอ/PDF/ลิงก์ · "สรุปผลการเรียน" ส่งเฉพาะสถิติที่ไม่ระบุตัวผู้เรียน · '
                     . 'ปิดผู้ช่วย AI ของผู้เรียนในวิชาได้ที่หน้าแก้ไขรายวิชา (เช่น ช่วงสอบ)', 'warning', 'bi-exclamation-triangle')],
         ]],
+
+        'boards' => ['label' => 'กระดานกิจกรรม', 'icon' => 'bi-easel2', 'sections' => manual_board_sections($step, $tip, $u)],
 
         'admin' => ['label' => 'ผู้ดูแลระบบ', 'icon' => 'bi-shield-shaded', 'sections' => [
             ['users', 'จัดการสมาชิกและครูผู้สอน', 'bi-person-lines-fill',

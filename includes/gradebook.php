@@ -80,6 +80,11 @@ function grade_sync(int $courseId): void
         db_exec('INSERT INTO grade_items (course_id,source_key,kind,lesson_id,source_media_id,title,max_score,attempt_policy) VALUES (?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE title=VALUES(title),max_score=VALUES(max_score)',
             [$courseId,$key,$source['media_type'],(int)$source['lesson_id'],(int)$source['source_media_id'],$source['title'],$max,$source['media_type']==='quiz' ? 'highest' : 'latest']);
     }
+    // ใบงานบนกระดานกิจกรรม
+    foreach (board_grade_sources($courseId) as $key => $board) {
+        db_exec("INSERT INTO grade_items (course_id,source_key,kind,lesson_id,source_media_id,title,max_score,attempt_policy) VALUES (?,?,'board',?,0,?,?,'latest') ON DUPLICATE KEY UPDATE title=VALUES(title),max_score=VALUES(max_score),lesson_id=VALUES(lesson_id)",
+            [$courseId,$key,$board['lesson_id'] ? (int)$board['lesson_id'] : null,$board['title'],(float)$board['max_points']]);
+    }
 }
 
 function grade_config(int $courseId): array
@@ -123,7 +128,7 @@ function grade_calculate(array $items, array $cells, array $scale): array
 function gradebook_data(int $courseId, int $groupId = 0): array
 {
     $items=db_all('SELECT * FROM grade_items WHERE course_id=? ORDER BY id',[$courseId]);
-    $sources=grade_sources($courseId); $scores=[]; $manual=[];
+    $sources=grade_sources($courseId)+board_grade_sources($courseId); $scores=board_grade_scores($courseId); $manual=[];
     if (quiz_ready()) foreach (db_all('SELECT a.id,a.lesson_id,a.source_media_id,a.user_id,a.score,a.total AS max FROM quiz_attempts a JOIN lessons l ON l.id=a.lesson_id WHERE l.course_id=? ORDER BY a.id DESC',[$courseId]) as $a) {
         $a['status']='graded'; $scores['quiz:'.$a['lesson_id'].':'.$a['source_media_id'].':'.$a['user_id']][]=$a;
     }
@@ -138,7 +143,7 @@ function gradebook_data(int $courseId, int $groupId = 0): array
                 $cell=['score'=>$entry['score'] ?? null,'max'=>$item['max_score'],'state'=>$entry ? 'scored' : 'missing','pending'=>false,'version'=>$entry ? (int)$entry['version'] : -1,'note'=>$entry['note'] ?? ''];
             } elseif (!isset($sources[$item['source_key']])) {
                 $cell=['score'=>null,'max'=>null,'state'=>'unavailable','pending'=>false];
-            } else $cell=grade_pick($scores[$item['source_key'].':'.$student['id']] ?? [],$item['attempt_policy'],$item['kind']);
+            } else $cell=grade_pick($scores[$item['source_key'].':'.$student['id']] ?? [],$item['attempt_policy'],$item['kind']==='board' ? 'assignment' : $item['kind']);
             $cells[$item['id']]=$cell;
         }
         $rows[]=['student'=>$student,'cells'=>$cells,'result'=>grade_calculate($items,$cells,$config['scale'])];

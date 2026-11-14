@@ -33,6 +33,7 @@ $curPage = basename($_SERVER['SCRIPT_NAME']);
                 <?php endif; ?>
                 <?php if ($me && ($me['role'] === 'student' || student_preview())): ?><li class="nav-item"><a class="nav-link <?= $curPage === 'my-progress.php' ? 'active' : '' ?>" href="<?= url('my-progress.php') ?>">ความก้าวหน้า</a></li><?php endif; ?>
                 <?php if ($me && $me['role'] === 'student'): ?><li class="nav-item"><a class="nav-link <?= $curPage === 'my-grades.php' ? 'active' : '' ?>" href="<?= url('my-grades.php') ?>">ผลการเรียน</a></li><?php endif; ?>
+                <?php if ($me && $me['role'] === 'student' && boards_ready()): ?><li class="nav-item"><a class="nav-link <?= $curPage === 'my-activities.php' ? 'active' : '' ?>" href="<?= url('my-activities.php') ?>"><i class="bi bi-stars"></i> กิจกรรมของฉัน</a></li><?php endif; ?>
                 <li class="nav-item"><a class="nav-link <?= $curPage === 'manual.php' ? 'active' : '' ?>" href="<?= url('manual.php') ?>"><i class="bi bi-book"></i> คู่มือการใช้งาน</a></li>
             </ul>
             <ul class="navbar-nav">

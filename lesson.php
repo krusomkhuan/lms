@@ -252,6 +252,16 @@ require __DIR__ . '/includes/header.php';
                 </div>
             </div>
 
+            <?php $boardList = course_boards($courseId, $canManage, $id); if ($boardList || $canManage && boards_ready()): ?>
+                <section class="mt-4" aria-label="กระดานกิจกรรมของบทนี้">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h2 class="h6 mb-0"><i class="bi bi-easel2 text-primary"></i> กระดานกิจกรรมของบทนี้</h2>
+                        <?php if ($canManage): ?><a class="btn btn-sm btn-outline-primary" href="<?= url('admin/board_form.php?course_id=' . $courseId . '&lesson_id=' . $id) ?>"><i class="bi bi-plus-lg"></i> สร้างกระดาน</a><?php endif; ?>
+                    </div>
+                    <?php require __DIR__ . '/includes/board_list.php'; ?>
+                </section>
+            <?php endif; ?>
+
             <?php
             // AI Learning Assistant (แสดงเมื่อผู้ดูแลเปิดโมดูล และครูไม่ได้ปิดในรายวิชานี้)
             require_once ROOT_PATH . '/includes/ai.php';

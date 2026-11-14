@@ -1,5 +1,6 @@
 <?php
 // ความก้าวหน้าผู้เรียน: ใช้ร่วมกันระหว่างหน้า "ความก้าวหน้าของฉัน" (นักเรียน) และแดชบอร์ดคะแนน (ครู)
+require_once __DIR__ . '/boards.php'; // งานค้างส่งรวมใบงานบนกระดานกิจกรรม
 
 /** แบบทดสอบ/งานที่เผยแพร่ของรายวิชา เรียงตามลำดับบทเรียน [key => ['kind','title','lesson_title','lesson_id','media_id','max','quiz_kind']] */
 function progress_items(int $courseId): array
@@ -82,11 +83,11 @@ function student_pending_work(int $userId): array
     static $cache = [];
     if (isset($cache[$userId])) return $cache[$userId];
     if (!assignments_ready()) return $cache[$userId] = [];
+    $items = [];
     $latest = [];
     foreach (db_all('SELECT lesson_id, source_media_id, status FROM assignment_submissions WHERE user_id = ? ORDER BY id', [$userId]) as $s) {
         $latest[$s['lesson_id'] . ':' . $s['source_media_id']] = $s['status'];
     }
-    $items = [];
     foreach (db_all("SELECT c.id, c.title FROM courses c WHERE c.status = 'published' AND c.id IN " . student_course_ids_sql(), [$userId, $userId]) as $course) {
         $lessons = [];
         foreach (db_all('SELECT * FROM lessons WHERE course_id = ? AND is_published = 1', [(int)$course['id']]) as $l) {
@@ -102,6 +103,11 @@ function student_pending_work(int $userId): array
                 'due' => $source['submission_due_at'] ?? null, 'late' => $state === 'late', 'revision' => $status === 'revision'];
         }
     }
+    // ใบงานบนกระดานกิจกรรมที่ยังไม่ส่ง หรือครูให้แก้ไข
+    foreach (board_pending_for($userId) as $p) {
+        $items[] = ['course' => $p['board']['course_title'], 'title' => $p['board']['title'] . ' (กระดานกิจกรรม)', 'board_id' => (int)$p['board']['id'], 'lesson_id' => 0, 'media_id' => 0,
+            'due' => $p['board']['due_at'], 'late' => $p['late'], 'revision' => $p['revision']];
+    }
     usort($items, fn($a, $b) => [!$a['late'], $a['due'] === null, $a['due']] <=> [!$b['late'], $b['due'] === null, $b['due']]);
     return $cache[$userId] = $items;
 }
@@ -109,6 +115,7 @@ function student_pending_work(int $userId): array
 /** ลิงก์และคำอธิบายกำหนดส่งของงานค้าง */
 function pending_work_url(array $item): string
 {
+    if (!empty($item['board_id'])) return url('board.php?id=' . $item['board_id']);
     return url('lesson.php?id=' . $item['lesson_id'] . ($item['media_id'] ? '&media_id=' . $item['media_id'] : ''));
 }
 

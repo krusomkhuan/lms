@@ -57,6 +57,7 @@ require __DIR__ . '/_top.php';
         <a href="<?= url('admin/score_dashboard.php?course_id=' . $courseId) ?>" class="btn btn-outline-success"><i class="bi bi-bar-chart-line"></i> แดชบอร์ดคะแนน</a>
         <a href="<?= url('admin/gradebook.php?course_id=' . $courseId) ?>" class="btn btn-outline-success">สมุดคะแนน / ตัดเกรด</a>
         <a href="<?= url('admin/question_bank.php?course_id=' . $courseId) ?>" class="btn btn-outline-primary"><i class="bi bi-archive"></i> คลังข้อสอบ</a>
+        <a href="<?= url('admin/boards.php?course_id=' . $courseId) ?>" class="btn btn-outline-primary"><i class="bi bi-easel2"></i> กระดานกิจกรรม</a>
         <a href="<?= url('admin/course_backup.php?course_id=' . $courseId) ?>" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-zip"></i> สำรองรายวิชา</a>
         <a href="<?= url('admin/prepost.php?course_id=' . $courseId) ?>" class="btn btn-outline-success"><i class="bi bi-graph-up-arrow"></i> ผลก่อน–หลังเรียน</a>
         <a href="<?= url('course.php?id=' . $courseId) ?>" target="_blank" class="btn btn-outline-secondary"><i class="bi bi-eye"></i> ดูหน้าบ้าน</a>

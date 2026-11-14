@@ -129,6 +129,12 @@ function pdpa_export_user(int $uid): array
         'grade_results' => gradebook_ready() ? db_all('SELECT c.code,c.title,r.total,r.grade_label,g.created_at,r.snapshot_json FROM grade_results r JOIN grade_runs g ON g.id=r.run_id JOIN courses c ON c.id=g.course_id WHERE r.user_id=? ORDER BY g.id', [$uid]) : [],
         'attendance' => attendance_ready() ? db_all('SELECT c.code,c.title,a.attendance_date,a.status,a.note,a.source,a.checked_at,a.updated_at FROM attendance_records a JOIN courses c ON c.id=a.course_id WHERE a.user_id=? ORDER BY a.attendance_date', [$uid]) : [],
         'assignment_submissions' => assignments_ready() ? db_all('SELECT assignment_title, max_score, submission_text, original_name, score, feedback, status, submitted_at, graded_at FROM assignment_submissions WHERE user_id = ? ORDER BY id', [$uid]) : [],
+        'board_posts' => boards_ready() ? db_all('SELECT c.code, b.title AS board, p.title, p.body, p.link_url, p.status, p.created_at, p.updated_at, p.deleted_at,
+                                                  (SELECT GROUP_CONCAT(a.original_name SEPARATOR ", ") FROM board_attachments a WHERE a.post_id = p.id) AS files
+                                                  FROM board_posts p JOIN boards b ON b.id = p.board_id JOIN courses c ON c.id = b.course_id WHERE p.user_id = ? ORDER BY p.id', [$uid]) : [],
+        'board_comments' => boards_ready() ? db_all('SELECT b.title AS board, m.body, m.created_at, m.deleted_at FROM board_comments m JOIN board_posts p ON p.id = m.post_id JOIN boards b ON b.id = p.board_id WHERE m.user_id = ? ORDER BY m.id', [$uid]) : [],
+        'board_scores' => boards_ready() ? db_all('SELECT b.title AS board, s.score, b.max_points, s.feedback, s.status, s.graded_at FROM board_scores s JOIN boards b ON b.id = s.board_id WHERE s.user_id = ?', [$uid]) : [],
+        'xp' => boards_ready() ? db_all('SELECT c.code, x.source, x.points, x.created_at FROM xp_events x JOIN courses c ON c.id = x.course_id WHERE x.user_id = ? ORDER BY x.id', [$uid]) : [],
         'consent_history' => db_all('SELECT policy_version, action, ip, created_at FROM consent_logs WHERE user_id = ? ORDER BY id', [$uid]),
         'pdpa_requests' => db_all('SELECT type, detail, status, admin_note, created_at, handled_at FROM pdpa_requests WHERE user_id = ? ORDER BY id', [$uid]),
     ];

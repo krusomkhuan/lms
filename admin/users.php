@@ -15,8 +15,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $u = db_one('SELECT avatar FROM users WHERE id = ?', [$uid]);
         delete_upload($u['avatar'] ?? null);
         $workFiles = assignments_ready() ? db_all('SELECT file_path FROM assignment_submissions WHERE user_id = ?', [$uid]) : [];
+        $boardFiles = board_files_where('p.user_id = ?', [$uid]);
         db_exec('DELETE FROM users WHERE id = ?', [$uid]);
         foreach ($workFiles as $file) delete_upload($file['file_path']);
+        foreach ($boardFiles as $path) delete_upload($path);
         flash('success', 'ลบสมาชิกเรียบร้อย');
     } elseif (post('action') === 'reset_password') {
         // รีเซ็ตเป็นรหัสผ่านชั่วคราวแบบสุ่ม แสดงให้ผู้ดูแลเห็นครั้งเดียว (ไม่ใช้ตัวที่สับสน เช่น 0/O 1/l)

@@ -38,6 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         db_exec('UPDATE courses SET ai_student_enabled = ? WHERE id = ?', [post('ai_student_enabled') ? 1 : 0, $id]);
         require_once ROOT_PATH . '/includes/lesson_lock.php';
         if (lesson_lock_ready()) db_exec('UPDATE courses SET sequential_lessons = ? WHERE id = ?', [post('sequential_lessons') ? 1 : 0, $id]);
+        if (boards_ready()) db_exec('UPDATE courses SET leaderboard_enabled = ? WHERE id = ?', [post('leaderboard_enabled') ? 1 : 0, $id]);
         if (enroll_key_ready()) {
             $enrollKey = is_string(post('enroll_key')) ? trim(post('enroll_key')) : '';
             if (mb_strlen($enrollKey) > 50) throw new RuntimeException('รหัสลงทะเบียนเรียนยาวได้ไม่เกิน 50 ตัวอักษร');
@@ -139,6 +140,13 @@ require __DIR__ . '/_top.php';
                         <label class="form-check-label" for="seqLessons"><i class="bi bi-lock"></i> บังคับเรียนตามลำดับบทเรียน</label>
                     </div>
                     <div class="form-text">ผู้เรียนต้องกด “เรียนจบบทนี้” ก่อนจึงเปิดบทถัดไปได้ (บทที่ยังไม่เปิดหรือปิดการเรียนแล้วไม่ขวางบทถัดไป)</div>
+                    <?php if (boards_ready()): $lbOn = $_SERVER['REQUEST_METHOD'] === 'POST' ? (bool)post('leaderboard_enabled') : !empty($course['leaderboard_enabled']); ?>
+                        <div class="form-check form-switch mt-3">
+                            <input class="form-check-input" type="checkbox" name="leaderboard_enabled" value="1" id="leaderboard" <?= $lbOn ? 'checked' : '' ?>>
+                            <label class="form-check-label" for="leaderboard"><i class="bi bi-trophy"></i> ให้นักเรียนเห็นตารางอันดับ Level ของรายวิชา</label>
+                        </div>
+                        <div class="form-text">ปิดไว้: นักเรียนเห็นเฉพาะดาวและ Level ของตนเอง (ดาวมาจากการมีส่วนร่วมบนกระดานกิจกรรมและครูมอบให้)</div>
+                    <?php endif; ?>
                     <?php if (setting('ai_enabled') === '1'): ?>
                         <?php $aiOn = $_SERVER['REQUEST_METHOD'] === 'POST' ? (bool)post('ai_student_enabled') : (int)($course['ai_student_enabled'] ?? 1) === 1; ?>
                         <div class="form-check form-switch mt-3">

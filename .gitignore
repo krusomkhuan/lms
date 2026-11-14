@@ -8,6 +8,9 @@
 !/uploads/submissions/
 /uploads/submissions/*
 !/uploads/submissions/.htaccess
+!/uploads/boards/
+/uploads/boards/*
+!/uploads/boards/.htaccess
 /database/*.sql
 !/database/lms.sql
 .env

@@ -5,6 +5,7 @@ $isAdmin = $me['role'] === 'admin';
 $menu = [
     ['index.php', 'bi-speedometer2', 'แดชบอร์ด', ['index.php']],
     ['courses.php', 'bi-journal-bookmark', 'รายวิชา', ['courses.php', 'course_form.php', 'lessons.php', 'lesson_form.php', 'course_students.php', 'gradebook.php', 'grade_history.php', 'assignments.php', 'quiz_results.php', 'course_backup.php']],
+    ['boards.php', 'bi-easel2', 'กระดานกิจกรรม', ['boards.php', 'board_form.php', 'board_report.php']],
     ['score_dashboard.php', 'bi-bar-chart-line', 'แดชบอร์ดคะแนน', ['score_dashboard.php']],
     ['attendance.php', 'bi-calendar-check', 'เช็คชื่อเข้าเรียน', ['attendance.php']],
     ['attendance_dashboard.php', 'bi-bar-chart-steps', 'สรุปการเข้าเรียน', ['attendance_dashboard.php']],

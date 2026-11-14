@@ -23,8 +23,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     delete_upload($u['avatar']);
                     $workFiles = assignments_ready() ? db_all('SELECT file_path FROM assignment_submissions WHERE user_id = ?', [$uid]) : [];
+                    $boardFiles = board_files_where('p.user_id = ?', [$uid]);
                     db_exec('DELETE FROM users WHERE id = ?', [$uid]);
-                    foreach ($workFiles as $file) delete_upload($file['file_path']);   // ข้อมูลที่ผูกกับผู้ใช้ถูกลบตาม (CASCADE)
+                    foreach ($workFiles as $file) delete_upload($file['file_path']);
+                    foreach ($boardFiles as $path) delete_upload($path);   // ข้อมูลที่ผูกกับผู้ใช้ถูกลบตาม (CASCADE)
                 }
                 $note = $note ?: 'ลบบัญชีและข้อมูลส่วนบุคคลแล้ว';
             }

@@ -15,8 +15,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $files = array_merge($files, db_all('SELECT m.file_path FROM lesson_media m JOIN lessons l ON l.id = m.lesson_id WHERE l.course_id = ?', [$id]));
         }
         if (assignments_ready()) $files = array_merge($files, db_all('SELECT s.file_path FROM assignment_submissions s JOIN lessons l ON l.id = s.lesson_id WHERE l.course_id = ?', [$id]));
+        $boardFiles = board_files_where('b.course_id = ?', [$id]);
         db_exec('DELETE FROM courses WHERE id = ?', [$id]);
         foreach ($files as $file) delete_upload($file['file_path']);
+        foreach ($boardFiles as $path) delete_upload($path);
         delete_upload($course['cover'] ?? null);
         flash('success', 'ลบรายวิชาเรียบร้อย');
     } elseif (post('action') === 'auto_covers') {

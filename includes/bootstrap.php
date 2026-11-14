@@ -11,6 +11,7 @@ require_once __DIR__ . '/gradebook.php';
 require_once __DIR__ . '/attendance.php';
 require_once __DIR__ . '/related_sites.php';
 require_once __DIR__ . '/progress.php';
+require_once __DIR__ . '/boards.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_set_cookie_params(['httponly' => true, 'samesite' => 'Lax']);
@@ -54,7 +55,7 @@ if (!defined('INSTALLING')) {
 if (!defined('INSTALLING') && $_SERVER['REQUEST_METHOD'] === 'POST' && student_preview()
     && !in_array(basename($_SERVER['SCRIPT_NAME']), ['consent.php', 'login.php'], true)) {
     $previewMsg = 'มุมมองสำหรับผู้เรียนเป็นโหมดดูอย่างเดียว ไม่บันทึกข้อมูล';
-    if (basename($_SERVER['SCRIPT_NAME']) === 'ai_learn.php') {
+    if (in_array(basename($_SERVER['SCRIPT_NAME']), ['ai_learn.php', 'board_api.php'], true)) {
         header('Content-Type: application/json; charset=utf-8');
         http_response_code(403);
         exit(json_encode(['ok' => false, 'error' => $previewMsg], JSON_UNESCAPED_UNICODE));

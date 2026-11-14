@@ -57,6 +57,15 @@ require __DIR__ . '/includes/header.php';
         <div class="alert alert-success d-flex justify-content-between align-items-center"><span><i class="bi bi-award"></i> ผลการเรียนที่ครูประกาศ: คะแนนรวม <b><?= e($grade['total']) ?></b> / 100 · เกรด <b><?= e($grade['grade_label']) ?></b></span><small><?= e(thai_date($grade['created_at'], true)) ?></small></div>
     <?php endif; ?>
 
+    <?php if (boards_ready() && $me['role'] === 'student'): $lv = xp_level(xp_total($courseId, (int)$me['id'])); ?>
+    <div class="card border-0 shadow-sm rounded-4 mb-4"><div class="card-body d-flex flex-wrap align-items-center gap-3">
+        <span class="level-badge">Lv.<?= $lv['level'] ?></span>
+        <div class="flex-grow-1" style="min-width:12rem"><div class="fw-semibold">⭐ <?= number_format($lv['stars']) ?> ดาว จากกระดานกิจกรรม</div>
+            <div class="progress mt-1" style="height:8px"><div class="progress-bar bg-warning" style="width:<?= $lv['percent'] ?>%"></div></div>
+            <div class="small text-muted">อีก <?= number_format($lv['to'] - $lv['stars']) ?> ดาว ถึง Lv.<?= $lv['level'] + 1 ?></div></div>
+        <a class="btn btn-sm btn-outline-warning" href="<?= url('my-activities.php?course_id=' . $courseId) ?>"><i class="bi bi-stars"></i> กิจกรรมของฉัน</a>
+    </div></div>
+    <?php endif; ?>
     <?php if ($pairs): ?>
     <div class="card border-0 shadow-sm rounded-4 mb-4"><div class="card-body">
         <h2 class="h6 mb-3"><i class="bi bi-arrow-up-right-circle text-success"></i> ผลก่อนเรียน–หลังเรียน</h2>

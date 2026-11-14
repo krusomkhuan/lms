@@ -132,8 +132,25 @@ require __DIR__ . '/includes/header.php';
                 <?php endforeach; ?>
                 <?php if (!$lessons): ?><div class="list-group-item text-muted py-4 text-center">ยังไม่มีบทเรียน</div><?php endif; ?>
             </div>
+            <?php $boardList = ($enrolled || $canManage) ? course_boards($id, $canManage) : []; if ($boardList): ?>
+                <h5 class="mt-4 mb-3"><i class="bi bi-easel2 text-primary"></i> กระดานกิจกรรม</h5>
+                <?php require __DIR__ . '/includes/board_list.php'; ?>
+            <?php endif; ?>
         </div>
         <div class="col-lg-4">
+            <?php if (boards_ready() && $enrolled && $me['role'] === 'student'): $lv = xp_level(xp_total($id, (int)$me['id'])); ?>
+                <h5 class="mb-3">Level ของฉัน</h5>
+                <div class="card border-0 shadow-sm rounded-4 mb-4"><div class="card-body">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="level-badge">Lv.<?= $lv['level'] ?></span>
+                        <div class="flex-grow-1"><div class="fw-semibold">⭐ <?= number_format($lv['stars']) ?> ดาว</div>
+                            <div class="progress mt-1" style="height:8px" role="progressbar" aria-label="ความคืบหน้าไป Level ถัดไป" aria-valuenow="<?= $lv['percent'] ?>" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar bg-warning" style="width:<?= $lv['percent'] ?>%"></div></div>
+                            <div class="small text-muted mt-1">อีก <?= number_format($lv['to'] - $lv['stars']) ?> ดาว ถึง Lv.<?= $lv['level'] + 1 ?> · สะสมจากการมีส่วนร่วมบนกระดานกิจกรรม</div></div>
+                    </div>
+                    <a class="btn btn-sm btn-vt mt-3" href="<?= url('my-activities.php?course_id=' . $id) ?>"><i class="bi bi-stars"></i> กิจกรรมของฉัน</a>
+                    <?php if ($course['leaderboard_enabled'] ?? 0): ?><a class="btn btn-sm btn-outline-warning mt-3" href="<?= url('leaderboard.php?course_id=' . $id) ?>"><i class="bi bi-trophy"></i> ตารางอันดับ</a><?php endif; ?>
+                </div></div>
+            <?php endif; ?>
             <h5 class="mb-3">ครูผู้สอน</h5>
             <div class="card border-0 shadow-sm rounded-4">
                 <div class="card-body">
